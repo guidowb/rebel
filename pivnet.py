@@ -6,6 +6,7 @@ import urllib, urllib2
 import json
 import os.path
 import errno
+import cli
 
 """ Pivotal Network API """
 
@@ -117,7 +118,7 @@ def list_products(argv):
 	print "\n".join([p["name"] for p in products])
 
 def list_releases(argv):
-	exit_with_usage(argv) if len(argv) < 2 else None
+	cli.exit_with_usage(argv) if len(argv) < 2 else None
 	product_pattern = argv[1]
 	release_pattern = argv[2] if len(argv) > 2 else ""
 	product = pivnet_select_product(product_pattern)
@@ -125,7 +126,7 @@ def list_releases(argv):
 	print "\n".join([r["version"] for r in releases])
 
 def list_files(argv):
-	exit_with_usage(argv) if len(argv) < 3 else None
+	cli.exit_with_usage(argv) if len(argv) < 3 else None
 	product_pattern = argv[1]
 	release_pattern = argv[2]
 	file_pattern = argv[3] if len(argv) > 3 else ""
@@ -135,7 +136,7 @@ def list_files(argv):
 	print "\n".join([product["slug"] + "/" + os.path.basename(f["aws_object_key"]) for f in files])
 
 def accept_eula(argv):
-	exit_with_usage(argv) if len(argv) < 3 else None
+	cli.exit_with_usage(argv) if len(argv) < 3 else None
 	product_pattern = argv[1]
 	release_pattern = argv[2]
 	product = pivnet_select_product(product_pattern)
@@ -143,7 +144,7 @@ def accept_eula(argv):
 	pivnet_accept_eula(product, release)
 
 def download(argv):
-	exit_with_usage(argv) if len(argv) < 3 else None
+	cli.exit_with_usage(argv) if len(argv) < 3 else None
 	product_pattern = argv[1]
 	release_pattern = argv[2]
 	file_pattern = argv[3] if len(argv) > 3 else ""
@@ -159,28 +160,7 @@ def download(argv):
 			print error.reason, '(', error.code, ')'
 		sys.exit(1)
 
-""" Pretty much generic CLI module """
-
-def unknown_command(argv):
-	print "unknown command", argv[0]
-	return 1
-
-def print_help(argv = None):
-	for name, command in commands.iteritems():
-		print command["usage"]
-
-def print_usage(argv):
-	print "Usage:", commands.get(argv[0])["usage"]
-
-def exit_with_usage(argv = None):
-	if argv is None:
-		print_help()
-	else:
-		print_usage(argv)
-	sys.exit(1)
-
 commands = {
-	"help":        { "func": print_help,    "usage": "help" },
 	"products":    { "func": list_products, "usage": "products [<product-name>]" },
 	"releases":    { "func": list_releases, "usage": "releases <product-name> [<release-name>]" },
 	"accept-eula": { "func": accept_eula,   "usage": "accept-eula <product-name> <release-name>" },
@@ -188,11 +168,5 @@ commands = {
 	"download":    { "func": download,      "usage": "download <product-name> <release-name> [<file-name>]" },
 }
 
-def main(argv):
-	exit_with_usage() if len(argv) < 2 else None
-	command = commands.get(argv[1], { "func": unknown_command } )
-	result = command["func"](argv[1:])
-	sys.exit(result)
-
 if __name__ == '__main__':
-	main(sys.argv)
+	cli.cli(sys.argv, commands)
