@@ -27,6 +27,15 @@ def aws_cli(argv):
 	install_aws_cli_if_required()
 	return subprocess.check_output([AWS_CLI_BIN] + argv, stderr=subprocess.STDOUT)
 
+def aws_cli_verbose(argv):
+	install_aws_cli_if_required()
+	try:
+		return subprocess.check_output([AWS_CLI_BIN] + argv, stderr=subprocess.STDOUT)
+	except subprocess.CalledProcessError as error:
+		print 'Command failed with exit code', error.returncode
+		print error.output
+		sys.exit(1)
+
 def install_aws_cli_if_required():
 	if os.path.isfile(AWS_CLI_BIN) and os.access(AWS_CLI_BIN, os.X_OK):
 		return
