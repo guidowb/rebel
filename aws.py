@@ -45,7 +45,7 @@ def install_aws_cli_if_required():
 
 def mkdir_p(dir):
 	try:
-		os.makedirs(AWS_CLI_DIR)
+		os.makedirs(dir)
 	except os.error, e:
 		if e.errno != errno.EEXIST:
 			raise
