@@ -5,23 +5,26 @@ import ConfigParser
 
 CONFIG_FILE = "ramble.cfg"
 CONFIG = None
+UNSPECIFIED = {}
 
-def get(section, key):
+def get(section, key, default=UNSPECIFIED):
 	global CONFIG
 	if CONFIG is None:
 		CONFIG = load_config()
 	try:
-		value = CONFIG.get(section, key)
+		return CONFIG.get(section, key)
 	except ConfigParser.NoSectionError:
-		print "Config file", CONFIG_FILE, "must have section named", section
-		sys.exit(1)
+		if default is UNSPECIFIED:
+			print "Config file", CONFIG_FILE, "must have section named", section
+			sys.exit(1)
 	except ConfigParser.NoOptionError:
-		print "Config file", CONFIG_FILE, "section", section, "must specify value for", key
-		sys.exit(1)
+		if default is UNSPECIFIED:
+			print "Config file", CONFIG_FILE, "section", section, "must specify value for", key
+			sys.exit(1)
 	except ConfigParser.Error as error:
 		print error
 		sys.exit(1)
-	return value
+	return None
 
 def load_config():
 	config = ConfigParser.SafeConfigParser()
