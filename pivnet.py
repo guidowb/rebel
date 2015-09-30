@@ -71,18 +71,21 @@ def pivnet_accept_eula(product, release):
 	url = 'https://network.pivotal.io/api/v2/products/' + str(product["id"]) + '/releases/' + str(release["id"]) + '/eula_acceptance'
 	acceptance = json.load(pivnet_post(url, {}))
 
-def pivnet_download(product, release, files, progress=False):
+def pivnet_open(file):
 	PIVNET_TOKEN = config.get('pivotal-network', 'token')
+	url = file["_links"]["download"]["href"]
+	request = urllib2.Request(url)
+	request.add_header('Authorization', 'Token ' + PIVNET_TOKEN)
+	return urllib2.urlopen(request, data=urllib.urlencode({}))
+
+def pivnet_download(product, release, files, progress=False):
 	target_dir = product["slug"]
 	mkdir_p(target_dir)
 	downloads = []
 	for f in files:
 		blocksize = 1 * 1024 * 1024
-		source_url = f["_links"]["download"]["href"]
 		target_name = target_dir + "/" + os.path.basename(f["aws_object_key"])
-		request = urllib2.Request(source_url)
-		request.add_header('Authorization', 'Token ' + PIVNET_TOKEN)
-		source = urllib2.urlopen(request, data=urllib.urlencode({}))
+		source = pivnet_open(f)
 		if progress:
 			sys.stdout.write(target_name + ' ')
 			sys.stdout.flush()
