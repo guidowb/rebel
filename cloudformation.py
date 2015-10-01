@@ -10,10 +10,11 @@ import time, datetime
 
 """ CloudFormation API """
 
-def download_template(version):
-	version = config.get('elastic-runtime', 'release') if version is None else version
+def download_template(version, verbose=False):
+	version = config.get('elastic-runtime', 'release', None) if version is None else version
 	product = pivnet.pivnet_select_product('Elastic Runtime')
 	release = pivnet.pivnet_select_release(product, version)
+	version = release["version"]
 	files   = pivnet.pivnet_files(product, release, 'cloudformation')
 	if len(files) < 1:
 		print "no cloudformation template found for release", version
@@ -21,7 +22,10 @@ def download_template(version):
 	if len(files) > 1:
 		print "multiple cloudformation templates found for release", version
 		sys.exit(1)
-	return json.load(pivnet.pivnet_open(files[0]))
+	if verbose:
+		print "Downloading CloudFormation template for Elastic Runtime version", version
+	template = json.load(pivnet.pivnet_open(files[0]))
+	return template
 
 def list_stacks(stack_pattern = ""):
 	stacks = json.loads(aws.aws_cli_verbose(['cloudformation', 'describe-stacks']))["Stacks"]
@@ -221,8 +225,7 @@ def create_stack_cmd(argv):
 	cli.exit_with_usage(argv) if len(argv) < 2 else None
 	stack_name = argv[1]
 	release = argv[2] if len(argv) > 2 else None
-	print "Downloading CloudFormation template"
-	template = download_template(release)
+	template = download_template(release, verbose=True)
 	create_stack(template, stack_name, verbose=True)
 
 def delete_stack_cmd(argv):
