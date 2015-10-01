@@ -78,14 +78,15 @@ def delete_stack(stack, sync=True, verbose=False):
 
 def await_stack(name, verbose=False):
 	""" Wait for in-progress state to clear """
+	starttime = datetime.datetime.now()
 	stack = select_stack(name)
 	in_progress = True
 	resources = {}
 	while in_progress:
-		in_progress = update_stack_resources(stack, resources, verbose)
+		in_progress = update_stack_resources(stack, resources, starttime, verbose)
 		time.sleep(5)
 
-def update_stack_resources(stack, oldresources, verbose=False):
+def update_stack_resources(stack, oldresources, starttime, verbose=False):
 	stack_id = stack["StackId"]
 	stack_status = get_stack(stack_id)["StackStatus"]
 	in_progress = stack_status.endswith("_IN_PROGRESS")
@@ -105,12 +106,14 @@ def update_stack_resources(stack, oldresources, verbose=False):
 				sys.stdout.write(blank_line)
 				oldtime = oldresource.get("LastUpdatedTimestamp", None)
 				newtime = newresource.get("LastUpdatedTimestamp", None)
+				delta = None
 				if oldtime is not None and newtime is not None:
-					# 2015-10-01T16:40:53.135Z
-					aws_date_format = "%Y-%m-%dT%H:%M:%S"
+					aws_date_format = "%Y-%m-%dT%H:%M:%S" # 2015-10-01T16:40:53.135Z
 					oldtime = datetime.datetime.strptime(oldtime[:18], aws_date_format)
 					newtime = datetime.datetime.strptime(newtime[:18], aws_date_format)
 					delta = newtime - oldtime
+					since = datetime.datetime.now() - starttime
+					delta = delta if delta < since else datetime.timedelta(0)
 					print friendly_status(newstatus), resource_id, "(" + friendly_delta(delta) + ")"
 				else:
 					print friendly_status(newstatus), resource_id
