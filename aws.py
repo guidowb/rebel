@@ -25,7 +25,12 @@ AWS_CLI_INSTALL = AWS_CLI_DIR + "/awscli-bundle/install"
 
 def aws_cli(argv):
 	install_aws_cli_if_required()
-	return subprocess.check_output([AWS_CLI_BIN] + argv, stderr=subprocess.STDOUT)
+	command = [
+		AWS_CLI_BIN,
+		'--no-paginate',
+		'--output', 'json'
+	]
+	return subprocess.check_output(command + argv, stderr=subprocess.STDOUT)
 
 def aws_cli_verbose(argv):
 	try:
