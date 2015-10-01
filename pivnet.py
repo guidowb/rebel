@@ -49,7 +49,9 @@ def pivnet_releases(product, release_pattern = ""):
 	releases = [r for r in releases["releases"] if release_pattern in r["version"]]
 	return releases
 
-def pivnet_select_release(product, release_pattern):
+def pivnet_select_release(product, release_pattern=None):
+	if release_pattern is None:
+		return pivnet_latest_release(product)
 	releases = pivnet_releases(product, release_pattern)
 	if len(releases) < 1:
 		print release_pattern, "does not match any releases. Available releases are:"
@@ -61,6 +63,15 @@ def pivnet_select_release(product, release_pattern):
 		print "Please be more specific"
 		sys.exit(1)
 	return releases[0]
+
+def pivnet_latest_release(product, controlled=False):
+	releases = pivnet_releases(product)
+	if not controlled:
+		releases = [r for r in releases if not r["controlled"] == 'true']
+	if len(releases) < 1:
+		print "No matching releases available for product"
+		sys.exit(1)
+	return sorted(releases, key=lambda release: release["release_date"])[-1]
 
 def pivnet_files(product, release, file_pattern = ""):
 	url = 'https://network.pivotal.io/api/v2/products/' + str(product["id"]) + '/releases/' + str(release["id"]) + '/product_files'
@@ -77,7 +88,14 @@ def pivnet_open(file):
 	url = file["_links"]["download"]["href"]
 	request = urllib2.Request(url)
 	request.add_header('Authorization', 'Token ' + PIVNET_TOKEN)
-	return urllib2.urlopen(request, data=urllib.urlencode({}))
+	try:
+		return urllib2.urlopen(request, data=urllib.urlencode({}))
+	except urllib2.HTTPError as error:
+		if error.code == 451:
+			print "You must accept-eula before downloading files"
+		else:
+			print error.reason, '(', error.code, ')'
+		sys.exit(1)
 
 def pivnet_download(product, release, files, progress=False):
 	target_dir = product["slug"]
