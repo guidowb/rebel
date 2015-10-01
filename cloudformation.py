@@ -6,7 +6,7 @@ import config
 import json
 import aws
 import cli
-import time
+import time, datetime
 
 """ CloudFormation API """
 
@@ -103,7 +103,17 @@ def update_stack_resources(stack, oldresources, verbose=False):
 				partials.append(resource_id)
 			elif oldresource is not None and oldresource["ResourceStatus"] != newstatus:
 				sys.stdout.write(blank_line)
-				print friendly_status(newstatus), resource_id
+				oldtime = oldresource.get("LastUpdatedTimestamp", None)
+				newtime = newresource.get("LastUpdatedTimestamp", None)
+				if oldtime is not None and newtime is not None:
+					# 2015-10-01T16:40:53.135Z
+					aws_date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+					oldtime = datetime.datetime.strptime(oldtime, aws_date_format)
+					newtime = datetime.datetime.strptime(newtime, aws_date_format)
+					delta = newtime - oldtime
+					print friendly_status(newstatus), resource_id, "(" + friendly_delta(delta) + ")"
+				else:
+					print friendly_status(newstatus), resource_id
 			oldresources[resource_id] = newresource
 		if len(partials) > 0:
 			partials_line = operation + " " + ", ".join(partials)	
@@ -177,11 +187,18 @@ def friendly_status(status):
 	return {
 		"CREATE_COMPLETE":    "Created",
 		"CREATE_IN_PROGRESS": "Creating",
+		"CREATE_FAILED":      "Partial",
 		"DELETE_COMPLETE":    "Deleted",
 		"DELETE_IN_PROGRESS": "Deleting",
 		"UPDATE_COMPLETE":    "Updated",
 		"UPDATE_IN_PROGRESS": "Updating"
 	}.get(status, "[" + status.lower().replace('_', '-') + "]")
+
+def friendly_delta(delta):
+	seconds = delta.seconds
+	hours, remainder = divmod(seconds, 3600)
+	minutes, seconds = divmod(remainder, 60)
+	return '%02d:%02d:%02d' % (hours, minutes, seconds)
 
 """ CloudFormation CLI exercising CloudFormation API """
 
