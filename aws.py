@@ -9,12 +9,7 @@ import zipfile
 import subprocess
 
 def main(argv):
-	try:
-		output = aws_cli(argv[1:])
-		print output
-	except subprocess.CalledProcessError as error:
-		print error.output
-		sys.exit(error.returncode)
+	print aws_cli_verbose(argv[1:])
 
 HOME_DIR = os.path.expanduser("~")
 AWS_CLI_DIR = HOME_DIR + "/.aws-cli"
@@ -38,7 +33,7 @@ def aws_cli_verbose(argv):
 	except subprocess.CalledProcessError as error:
 		print 'Command failed with exit code', error.returncode
 		print error.output
-		sys.exit(1)
+		sys.exit(error.returncode)
 
 def install_aws_cli_if_required():
 	if os.path.isfile(AWS_CLI_BIN) and os.access(AWS_CLI_BIN, os.X_OK):
