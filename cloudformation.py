@@ -107,9 +107,9 @@ def update_stack_resources(stack, oldresources, verbose=False):
 				newtime = newresource.get("LastUpdatedTimestamp", None)
 				if oldtime is not None and newtime is not None:
 					# 2015-10-01T16:40:53.135Z
-					aws_date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
-					oldtime = datetime.datetime.strptime(oldtime, aws_date_format)
-					newtime = datetime.datetime.strptime(newtime, aws_date_format)
+					aws_date_format = "%Y-%m-%dT%H:%M:%S"
+					oldtime = datetime.datetime.strptime(oldtime[:18], aws_date_format)
+					newtime = datetime.datetime.strptime(newtime[:18], aws_date_format)
 					delta = newtime - oldtime
 					print friendly_status(newstatus), resource_id, "(" + friendly_delta(delta) + ")"
 				else:
@@ -228,11 +228,17 @@ def delete_stack_cmd(argv):
 	stack = select_stack(stack_name)
 	delete_stack(stack, verbose=True)
 
+def show_template_cmd(argv):
+	release = argv[1] if len(argv) > 1 else None
+	template = download_template(release)
+	print json.dumps(template, indent=4)
+
 commands = {
 	"stacks":       { "func": list_stacks_cmd,    "usage": "stacks [<stack-name>]" },
 	"create-stack": { "func": create_stack_cmd,   "usage": "create-stack <stack-name> [<release>]" },
 	"delete-stack": { "func": delete_stack_cmd,   "usage": "delete-stack <stack-name>" },
 	"resources":    { "func": list_resources_cmd, "usage": "resources <stack-name>" },
+	"template":     { "func": show_template_cmd,  "usage": "template [<release>]" },
 }
 
 if __name__ == '__main__':
