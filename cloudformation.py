@@ -6,6 +6,7 @@ import config
 import json
 import aws
 import cli
+import time
 
 """ CloudFormation API """
 
@@ -13,7 +14,7 @@ def download_template(version):
 	version = config.get('elastic-runtime', 'release') if version is None else version
 	product = pivnet.pivnet_select_product('Elastic Runtime')
 	release = pivnet.pivnet_select_release(product, version)
-	files = pivnet.pivnet_files(product, release, 'cloudformation')
+	files   = pivnet.pivnet_files(product, release, 'cloudformation')
 	if len(files) < 1:
 		print "no cloudformation template found for release", version
 		sys.exit(1)
@@ -41,7 +42,15 @@ def select_stack(stack_pattern):
 		sys.exit(1)
 	return stacks[0]
 
-def create_stack(template, name):
+def get_stack(stack_id):
+	stacks = json.loads(aws.aws_cli_verbose(['cloudformation', 'describe-stacks', '--stack-name', stack_id]))["Stacks"]
+	if len(stacks) < 1:
+		print stack_pattern, "does not match any stacks. Available stacks are:"
+		print "\n".join(["   " + s["StackId"] for s in list_stacks()])
+		sys.exit(1)
+	return stacks[0]
+
+def create_stack(template, name, sync=True, verbose=False):
 	command = [
 		'cloudformation',
 		'create-stack',
@@ -53,14 +62,65 @@ def create_stack(template, name):
 		'--tags', json.dumps(get_tags(template))
 	]
 	aws.aws_cli_verbose(command)
+	if sync:
+		await_stack(name, verbose)
 
-def delete_stack(stack):
+def delete_stack(stack, sync=True, verbose=False):
+	name = stack["StackName"]
 	command = [
 		'cloudformation',
 		'delete-stack',
-		'--stack-name', stack["StackName"]
+		'--stack-name', name
 	]
 	aws.aws_cli_verbose(command)
+	if sync:
+		await_stack(name, verbose)
+
+def await_stack(name, verbose=False):
+	""" Wait for in-progress state to clear """
+	stack = select_stack(name)
+	in_progress = True
+	resources = {}
+	while in_progress:
+		in_progress = update_stack_resources(stack, resources, verbose)
+		time.sleep(5)
+
+def update_stack_resources(stack, oldresources, verbose=False):
+	stack_id = stack["StackId"]
+	stack_status = get_stack(stack_id)["StackStatus"]
+	in_progress = stack_status.endswith("_IN_PROGRESS")
+	if verbose:
+		line_length = 120
+		blank_line = ' ' * line_length + '\r'
+		operation = friendly_status(stack_status)
+		partials = []
+		newresources = get_stack_resources(stack_id)
+		for newresource in newresources:
+			resource_id = newresource["LogicalResourceId"]
+			newstatus   = newresource["ResourceStatus"]
+			oldresource = oldresources.get(resource_id, None)
+			if newstatus.endswith("_IN_PROGRESS"):
+				partials.append(resource_id)
+			elif oldresource is not None and oldresource["ResourceStatus"] != newstatus:
+				sys.stdout.write(blank_line)
+				print friendly_status(newstatus), resource_id
+			oldresources[resource_id] = newresource
+		if len(partials) > 0:
+			partials_line = operation + " " + ", ".join(partials)	
+			partials_line = (partials_line[:line_length - 3] + '...') if len(partials_line) > line_length else partials_line
+			sys.stdout.write(blank_line)
+			sys.stdout.write(partials_line + '\r')
+			sys.stdout.flush()
+	return in_progress
+
+def get_stack_resources(stack_id):
+	resources = json.loads(aws.aws_cli_verbose(['cloudformation', 'list-stack-resources', '--stack-name', stack_id]))["StackResourceSummaries"]
+	for resource in resources:
+		if resource["ResourceType"] == 'AWS::CloudFormation::Stack':
+			substack_id = resource.get("PhysicalResourceId", None)
+			if substack_id is not None:
+				resources.extend(get_stack_resources(substack_id))
+	return resources
 
 def get_tags(template):
 	""" CloudFormation limits us to 10 """
@@ -94,8 +154,9 @@ def get_parameters(template):
 				})
 	return parameters
 
+""" Completely unnecessary functions but some of the name choices offend my sensibilities """
+
 def friendly_name(oldname):
-	""" Completely unnecessary but the template parameter names offend my sensibilities """
 	newname = ""
 	oldname = oldname.lstrip('0123456789') + "-"
 	hasdash = True
@@ -112,6 +173,16 @@ def friendly_name(oldname):
 			hasdash = False
 	return newname
 
+def friendly_status(status):
+	return {
+		"CREATE_COMPLETE":    "Created",
+		"CREATE_IN_PROGRESS": "Creating",
+		"DELETE_COMPLETE":    "Deleted",
+		"DELETE_IN_PROGRESS": "Deleting",
+		"UPDATE_COMPLETE":    "Updated",
+		"UPDATE_IN_PROGRESS": "Updating"
+	}.get(status, "[" + status.lower().replace('_', '-') + "]")
+
 """ CloudFormation CLI exercising CloudFormation API """
 
 def list_stacks_cmd(argv):
@@ -119,23 +190,32 @@ def list_stacks_cmd(argv):
 	stacks = list_stacks(stack_pattern)
 	print "\n".join([s["StackName"] for s in stacks])
 
+def list_resources_cmd(argv):
+	cli.exit_with_usage(argv) if len(argv) < 2 else None
+	stack_name = argv[1]
+	stack = select_stack(stack_name)
+	resources = get_stack_resources(stack["StackId"])
+	print "\n".join([friendly_status(r["ResourceStatus"]) + " " + r["LogicalResourceId"] for r in resources])
+
 def create_stack_cmd(argv):
 	cli.exit_with_usage(argv) if len(argv) < 2 else None
 	stack_name = argv[1]
 	release = argv[2] if len(argv) > 2 else None
+	print "Downloading CloudFormation template"
 	template = download_template(release)
-	create_stack(template, stack_name)
+	create_stack(template, stack_name, verbose=True)
 
 def delete_stack_cmd(argv):
 	cli.exit_with_usage(argv) if len(argv) < 2 else None
 	stack_name = argv[1]
 	stack = select_stack(stack_name)
-	delete_stack(stack)
+	delete_stack(stack, verbose=True)
 
 commands = {
-	"stacks": { "func": list_stacks_cmd, "usage": "stacks [<stack-name>]" },
-	"create-stack": { "func": create_stack_cmd, "usage": "create-stack <stack-name> [<release>]" },
-	"delete-stack": { "func": delete_stack_cmd, "usage": "delete-stack <stack-name>" },
+	"stacks":       { "func": list_stacks_cmd,    "usage": "stacks [<stack-name>]" },
+	"create-stack": { "func": create_stack_cmd,   "usage": "create-stack <stack-name> [<release>]" },
+	"delete-stack": { "func": delete_stack_cmd,   "usage": "delete-stack <stack-name>" },
+	"resources":    { "func": list_resources_cmd, "usage": "resources <stack-name>" },
 }
 
 if __name__ == '__main__':
