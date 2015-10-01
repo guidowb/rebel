@@ -25,10 +25,13 @@ def exit_with_usage(argv = None):
 	sys.exit(1)
 
 def cli(argv, client_commands):
-	global commands
-	commands = client_commands
-	commands["help"] = { "func": print_help, "usage": "help" }
-	exit_with_usage() if len(argv) < 2 else None
-	command = commands.get(argv[1], { "func": unknown_command } )
-	result = command["func"](argv[1:])
-	sys.exit(result)
+	try:
+		global commands
+		commands = client_commands
+		commands["help"] = { "func": print_help, "usage": "help" }
+		exit_with_usage() if len(argv) < 2 else None
+		command = commands.get(argv[1], { "func": unknown_command } )
+		result = command["func"](argv[1:])
+		sys.exit(result)
+	except KeyboardInterrupt:
+		sys.exit(1)
