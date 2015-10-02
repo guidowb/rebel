@@ -25,6 +25,11 @@ def download_template(version, verbose=False):
 	if verbose:
 		print "Downloading CloudFormation template for Elastic Runtime version", version
 	template = json.load(pivnet.pivnet_open(files[0]))
+	metadata = {
+		"created-by": "ramble",
+		"pcf-version": version,
+	}
+	template["Metadata"] = metadata
 	return template
 
 def list_stacks(stack_pattern = ""):
@@ -63,7 +68,7 @@ def create_stack(template, name, sync=True, verbose=False):
 		'--on-failure', 'DO_NOTHING',
 		'--parameters', json.dumps(get_parameters(template)),
 		'--capabilities', 'CAPABILITY_IAM',
-		'--tags', json.dumps(get_tags(template))
+		'--tags', json.dumps(set_tags(template))
 	]
 	aws.aws_cli_verbose(command)
 	if sync:
@@ -100,6 +105,7 @@ def update_stack_resources(stack, oldresources, starttime, verbose=False):
 		operation = friendly_status(stack_status)
 		partials = []
 		newresources = get_stack_resources(stack_id)
+		since = datetime.datetime.now() - starttime
 		for newresource in newresources:
 			resource_id = newresource["LogicalResourceId"]
 			newstatus   = newresource["ResourceStatus"]
@@ -108,22 +114,10 @@ def update_stack_resources(stack, oldresources, starttime, verbose=False):
 				partials.append(resource_id)
 			elif oldresource is not None and oldresource["ResourceStatus"] != newstatus:
 				sys.stdout.write(blank_line)
-				oldtime = oldresource.get("LastUpdatedTimestamp", None)
-				newtime = newresource.get("LastUpdatedTimestamp", None)
-				delta = None
-				if oldtime is not None and newtime is not None:
-					aws_date_format = "%Y-%m-%dT%H:%M:%S" # 2015-10-01T16:40:53.135Z
-					oldtime = datetime.datetime.strptime(oldtime[:18], aws_date_format)
-					newtime = datetime.datetime.strptime(newtime[:18], aws_date_format)
-					delta = newtime - oldtime
-					since = datetime.datetime.now() - starttime
-					delta = delta if delta < since else datetime.timedelta(0)
-					print friendly_status(newstatus), resource_id, "(" + friendly_delta(delta) + ")"
-				else:
-					print friendly_status(newstatus), resource_id
+				print friendly_delta(since), friendly_status(newstatus), resource_id
 			oldresources[resource_id] = newresource
 		if len(partials) > 0:
-			partials_line = operation + " " + ", ".join(partials)	
+			partials_line = friendly_delta(since) + " " + operation + " " + ", ".join(partials)
 			partials_line = (partials_line[:line_length - 3] + '...') if len(partials_line) > line_length else partials_line
 			sys.stdout.write(blank_line)
 			sys.stdout.write(partials_line + '\r')
@@ -139,12 +133,23 @@ def get_stack_resources(stack_id):
 				resources.extend(get_stack_resources(substack_id))
 	return resources
 
-def get_tags(template):
-	""" CloudFormation limits us to 10 """
+def set_tags(template):
+	""" AWS limits us to 10 """
 	tags = [
-		{ "Key": "created-by", "Value": "ramble" },
+		{ "Key": "created-by",  "Value": "ramble" },
+		{ "Key": "pcf-version", "Value": template["Metadata"]["pcf-version"] }
 	]
 	return tags
+
+def get_tag(stack, key):
+	tags = stack["Tags"]
+	tag = next((t for t in tags if t["Key"] == key), None)
+	return tag["Value"] if tag is not None else None
+
+def get_output(stack, key):
+	outputs = stack["Outputs"]
+	output = next((o for o in outputs if o["OutputKey"] == key), None)
+	return output["OutputValue"] if output is not None else None
 
 def is_ramble_stack(stack):
 	tags = stack.get("Tags", [])
