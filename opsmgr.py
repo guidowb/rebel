@@ -22,17 +22,20 @@ def opsmgr_list_images(region = None):
 	images.reverse()
 	return images
 
-def opsmgr_select_image(version):
+def opsmgr_select_image(version, verbose=False):
 	images = opsmgr_list_images()
 	image = next((i for i in images if i["Name"].startswith("pivotal-ops-manager-v" + version)), None)
+	if verbose and image is None:
+		print "No ops-manager image found for version", version
+		if len(images) > 0:
+			print "Available images are:"
+			print "\n".join([i["ImageId"] + " " + i["Name"] for i in images])
+		sys.exit(1)
 	return image
 
 def opsmgr_launch_instance(stack, version=None, verbose=False):
 	version = cloudformation.get_tag(stack, "pcf-version") if version is None else version
-	image = opsmgr_select_image(version)
-	if image is None:
-		print "No ops-manager image found for version", version
-		sys.exit(1)
+	image = opsmgr_select_image(version, verbose)
 	if verbose:
 		print "Launching OpsMgr instance from", image["ImageId"] + ":", image["Description"]
 	command = [
@@ -95,8 +98,9 @@ def list_images_cmd(argv):
 def launch_cmd(argv):
 	cli.exit_with_usage(argv) if len(argv) < 2 else None
 	stack_name = argv[1]
+	version = argv[2] if len(argv) > 2 else ""
 	stack = cloudformation.select_stack(stack_name)
-	instance = opsmgr_launch_instance(stack, verbose=True)
+	instance = opsmgr_launch_instance(stack, version, verbose=True)
 	print "Launched instance", instance["InstanceId"]
 
 def list_instances_cmd(argv):
