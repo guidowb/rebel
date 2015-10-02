@@ -15,6 +15,8 @@ def opsmgr_list_images():
 
 def list_images_cmd(argv):
 	images = opsmgr_list_images()
+	images = sorted(images, key=lambda image: image["CreationDate"])
+	images.reverse()
 	print "\n".join([i["ImageId"] + " " + i["Name"] for i in images])
 
 commands = {
