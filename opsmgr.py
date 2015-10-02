@@ -64,6 +64,18 @@ def opsmgr_launch_instance(stack, version=None, verbose=False):
 	aws.aws_cli_verbose(command)
 	return instance
 
+def opsmgr_terminate_instances(stack):
+	instances = opsmgr_find_instances(stack)
+	if len(instances) < 1:
+		return
+	instance_ids = [ i["InstanceId"] for i in instances]
+	command = [
+		'ec2',
+		'terminate-instances',
+		'--instance-ids'
+	]
+	aws.aws_cli_verbose(command + instance_ids)
+
 def opsmgr_find_instances(stack=None):
 	filters = [
 		{ "Name": "tag:Name", "Values": [ "Ops Manager" ] },
@@ -103,15 +115,26 @@ def launch_cmd(argv):
 	instance = opsmgr_launch_instance(stack, version, verbose=True)
 	print "Launched instance", instance["InstanceId"]
 
+def terminate_cmd(argv):
+	cli.exit_with_usage(argv) if len(argv) < 2 else None
+	stack_name = argv[1]
+	stack = cloudformation.select_stack(stack_name)
+	if stack is None:
+		print "Stack", stack_name, "not found"
+		sys.exit(1)
+	opsmgr_terminate_instances(stack)
+
 def list_instances_cmd(argv):
 	instances = opsmgr_find_instances()
 	for i in instances:
-		print opsmgr_get_tag(i, "Stack") + "(" + i["InstanceId"] + ")", opsmgr_get_tag(i, "Image")
+		state = "(pending)" if i["State"]["Name"] == "pending" else ""
+		print opsmgr_get_tag(i, "Stack") + "(" + i["InstanceId"] + ")", opsmgr_get_tag(i, "Image"), state
 
 commands = {
 	"images":    { "func": list_images_cmd,    "usage": "images [<region>]" },
 	"launch":    { "func": launch_cmd,         "usage": "launch <stack-name> <version>" },
 	"instances": { "func": list_instances_cmd, "usage": "instances" },
+	"terminate": { "func": terminate_cmd,      "usage": "terminate <stack-name>" }
 }
 
 if __name__ == '__main__':
