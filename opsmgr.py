@@ -128,7 +128,7 @@ def list_instances_cmd(argv):
 	instances = opsmgr_find_instances()
 	for i in instances:
 		state = "(pending)" if i["State"]["Name"] == "pending" else ""
-		print opsmgr_get_tag(i, "Stack") + "(" + i["InstanceId"] + ")", opsmgr_get_tag(i, "Image"), state
+		print opsmgr_get_tag(i, "Stack"), "(" + opsmgr_get_tag(i, "Image") + ")", i["PublicDnsName"]
 
 commands = {
 	"images":    { "func": list_images_cmd,    "usage": "images [<region>]" },
