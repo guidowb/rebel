@@ -47,14 +47,43 @@ def opsmgr_launch_instance(stack, version=None, verbose=False):
 		'--key-name', config.get('aws', 'nat-key-pair')
 	]
 	instance = json.loads(aws.aws_cli_verbose(command))["Instances"][0]
+	tags = [
+		{ "Key": "Name", "Value": "Ops Manager" },
+		{ "Key": "Stack", "Value": stack["StackName"] },
+		{ "Key": "Image", "Value": image["Description"] }
+	]
 	command = [
 		'ec2',
 		'create-tags',
 		'--resources', instance["InstanceId"],
-		'--tags', 'Key=Name,Value=Ops Manager'
+		'--tags', json.dumps(tags)
 	]
 	aws.aws_cli_verbose(command)
 	return instance
+
+def opsmgr_find_instances(stack=None):
+	filters = [
+		{ "Name": "tag:Name", "Values": [ "Ops Manager" ] },
+		{ "Name": "tag-key",  "Values": [ "Stack" ] },
+		{ "Name": "instance-state-name", "Values": [ "pending", "running"] }
+	]
+	if stack is not None:
+		filters.extend([ { "Name": "subnet-id", "Values": [ cloudformation.get_output(stack, "PcfPublicSubnetId") ] } ])
+	command = [
+		'ec2',
+		'describe-instances',
+		'--filters', json.dumps(filters)
+	]
+	reservations = json.loads(aws.aws_cli_verbose(command))["Reservations"]
+	instances = []
+	for r in reservations:
+		instances += r["Instances"]
+	return instances
+
+def opsmgr_get_tag(instance, key):
+	tags = instance["Tags"]
+	tag = next((t for t in tags if t["Key"] == key), None)
+	return tag["Value"] if tag is not None else None
 
 """ OpsManager CLI exercising OpsManager API """
 
@@ -63,16 +92,22 @@ def list_images_cmd(argv):
 	images = opsmgr_list_images(region)
 	print "\n".join([i["ImageId"] + " " + i["Name"] for i in images])
 
-def deploy_cmd(argv):
+def launch_cmd(argv):
 	cli.exit_with_usage(argv) if len(argv) < 2 else None
 	stack_name = argv[1]
 	stack = cloudformation.select_stack(stack_name)
 	instance = opsmgr_launch_instance(stack, verbose=True)
 	print "Launched instance", instance["InstanceId"]
 
+def list_instances_cmd(argv):
+	instances = opsmgr_find_instances()
+	for i in instances:
+		print opsmgr_get_tag(i, "Stack") + "(" + i["InstanceId"] + ")", opsmgr_get_tag(i, "Image")
+
 commands = {
-	"images": { "func": list_images_cmd, "usage": "images [<region>]" },
-	"deploy": { "func": deploy_cmd,      "usage": "deploy <stack-name> <version>" },
+	"images":    { "func": list_images_cmd,    "usage": "images [<region>]" },
+	"launch":    { "func": launch_cmd,         "usage": "launch <stack-name> <version>" },
+	"instances": { "func": list_instances_cmd, "usage": "instances" },
 }
 
 if __name__ == '__main__':
