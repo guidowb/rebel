@@ -196,8 +196,10 @@ def friendly_status(status):
 		"CREATE_FAILED":      "Partial",
 		"DELETE_COMPLETE":    "Deleted",
 		"DELETE_IN_PROGRESS": "Deleting",
+		"DELETE_FAILED":      "Failed to Delete",
 		"UPDATE_COMPLETE":    "Updated",
-		"UPDATE_IN_PROGRESS": "Updating"
+		"UPDATE_IN_PROGRESS": "Updating",
+		"UPDATE_FAILED":      "Failed to Update",
 	}.get(status, "[" + status.lower().replace('_', '-') + "]")
 
 def friendly_delta(delta):
