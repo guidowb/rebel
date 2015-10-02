@@ -152,13 +152,7 @@ def get_output(stack, key):
 	return output["OutputValue"] if output is not None else None
 
 def is_ramble_stack(stack):
-	tags = stack.get("Tags", [])
-	for tag in tags:
-		key = tag.get("Key", None)
-		value = tag.get("Value", None)
-		if key == 'created-by' and value == 'ramble':
-			return True
-	return False
+	return get_tag(stack, "created-by") == "ramble"
 
 def get_parameters(template):
 	parameters = []
@@ -217,6 +211,7 @@ def friendly_delta(delta):
 def list_stacks_cmd(argv):
 	stack_pattern = argv[1] if len(argv) > 1 else ""
 	stacks = list_stacks(stack_pattern)
+	stacks = sorted(stacks, key=lambda stack: stack["StackName"])
 	print "\n".join([s["StackName"] for s in stacks])
 
 def list_resources_cmd(argv):
