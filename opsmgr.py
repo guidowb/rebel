@@ -12,6 +12,9 @@ import time
 import random
 import string
 import base64
+import yaml
+import mimetools
+import bosh
 
 """ OpsManager API """
 
@@ -43,7 +46,7 @@ def opsmgr_launch_instance(stack, version=None, verbose=False):
 	version = cloudformation.get_tag(stack, "pcf-version") if version is None else version
 	image = opsmgr_select_image(version, verbose)
 	if verbose:
-		print "Launching OpsMgr instance from", image["ImageId"] + ":", image["Description"]
+		print "Launching Ops Manager instance from", image["ImageId"] + ":", image["Description"]
 	command = [
 		'ec2',
 		'run-instances',
@@ -101,17 +104,21 @@ def opsmgr_find_instances(stack=None):
 		instances += r["Instances"]
 	return instances
 
+def opsmgr_select_instance(stack):
+	instances = opsmgr_find_instances(stack)
+	if len(instances) < 1:
+		print stack["StackName"], "does not have an Ops Manager instance"
+		sys.exit(1)
+	return instances[0]
+
 def opsmgr_get_tag(instance, key):
 	tags = instance["Tags"]
 	tag = next((t for t in tags if t["Key"] == key), None)
 	return tag["Value"] if tag is not None else None
 
 def opsmgr_url(stack):
-	instances = opsmgr_find_instances(stack)
-	if len(instances) < 1:
-		print stack["StackName"], "does not have an Ops Manager instance"
-		sys.exit(1)
-	return "https://" + instances[0]["PublicDnsName"]
+	instance = opsmgr_select_instance(stack)
+	return "https://" + instance["PublicDnsName"]
 
 def opsmgr_request(stack, url):
 	url = opsmgr_url(stack) + url
@@ -127,14 +134,27 @@ def opsmgr_request(stack, url):
 def opsmgr_get(stack, url):
 	context = ssl._create_unverified_context()
 	request = opsmgr_request(stack, url)
-	request.add_header('Content-type', 'application/json')
+	request.add_header('Accept', 'application/json')
 	return urllib2.urlopen(opsmgr_request(stack, url), context=context)
 
 def opsmgr_post(stack, url, data):
 	context = ssl._create_unverified_context()
-	return urllib2.urlopen(opsmgr_request(stack, url), data=urllib.urlencode(data), context=context)
+	return urllib2.urlopen(opsmgr_request(stack, url), data=data, context=context)
 
-def opsmgr_wait(stack):
+def opsmgr_post_yaml(stack, url, name, data):
+	context = ssl._create_unverified_context()
+	boundary = mimetools.choose_boundary()
+	body  = '--' + boundary + '\r\n'
+	body += 'Content-Disposition: form-data; name="' + name + '"; filename="somefile.yml"\r\n'
+	body += 'Content-Type: text/yaml\r\n'
+	body += '\r\n'
+	body += yaml.safe_dump(data) + '\r\n'
+	body += '--' + boundary + '--\r\n'
+	request = opsmgr_request(stack, url)
+	request.add_header('Content-Type', 'multipart/form-data; boundary=' + boundary)
+	return urllib2.urlopen(request, data=body, context=context)
+
+def opsmgr_wait(stack, verbose=False):
 	while True:
 		try:
 			opsmgr_get(stack, "/api/api_version")
@@ -147,6 +167,11 @@ def opsmgr_wait(stack):
 		except:
 			pass
 		time.sleep(5)
+		if verbose:
+			sys.stdout.write('.')
+			sys.stdout.flush()
+	if verbose:
+		print
 
 def opsmgr_setup(stack):
 	opsmgr_wait(stack)
@@ -159,7 +184,7 @@ def opsmgr_setup(stack):
 		"setup[eula_accepted]": "true"
 	}
 	try:
-		result = json.load(opsmgr_post(stack, "/api/setup", setup))
+		result = json.load(opsmgr_post(stack, "/api/setup", urllib.urlencode(setup)))
 		config.set("stack-" + stack["StackName"], "opsmgr-username", username)
 		config.set("stack-" + stack["StackName"], "opsmgr-password", password)
 	except urllib2.HTTPError as error:
@@ -181,7 +206,13 @@ def launch_cmd(argv):
 	version = argv[2] if len(argv) > 2 else ""
 	stack = cloudformation.select_stack(stack_name)
 	instance = opsmgr_launch_instance(stack, version, verbose=True)
-	print "Launched instance", instance["InstanceId"]
+	print "Waiting for Ops Manager to start ",
+	opsmgr_wait(stack, verbose=True)
+	print "Setting up initial Admin user"
+	opsmgr_setup(stack)
+	print "Configuring Ops Manager Director"
+	bosh.bosh_config(stack)
+	print "Ops Manager started at", opsmgr_url(stack)
 
 def terminate_cmd(argv):
 	cli.exit_with_usage(argv) if len(argv) < 2 else None
@@ -198,15 +229,6 @@ def list_instances_cmd(argv):
 		state = "(pending)" if i["State"]["Name"] == "pending" else ""
 		print opsmgr_get_tag(i, "Stack"), "(" + opsmgr_get_tag(i, "Image") + ")", i["PublicDnsName"]
 
-def setup_cmd(argv):
-	cli.exit_with_usage(argv) if len(argv) < 2 else None
-	stack_name = argv[1]
-	stack = cloudformation.select_stack(stack_name)
-	if stack is None:
-		print "Stack", stack_name, "not found"
-		sys.exit(1)
-	opsmgr_setup(stack)
-
 def settings_cmd(argv):
 	cli.exit_with_usage(argv) if len(argv) < 2 else None
 	stack_name = argv[1]
@@ -222,7 +244,6 @@ commands = {
 	"launch":    { "func": launch_cmd,         "usage": "launch <stack-name> <version>" },
 	"instances": { "func": list_instances_cmd, "usage": "instances" },
 	"terminate": { "func": terminate_cmd,      "usage": "terminate <stack-name>" },
-	"setup":     { "func": setup_cmd,          "usage": "setup <stack-name>" },
 	"settings":  { "func": settings_cmd,       "usage": "settings <stack-name>" },
 }
 

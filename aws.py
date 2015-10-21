@@ -51,6 +51,11 @@ def install_aws_cli_if_required():
 	print "   Version:", version
 	print "   Done"
 
+def get_s3_endpoint(region):
+	if region == 'us-east-1':
+		return 'http://s3.amazonaws.com'
+	return 'http://s3-' + region + '.amazonaws.com'
+
 def mkdir_p(dir):
 	try:
 		os.makedirs(dir)

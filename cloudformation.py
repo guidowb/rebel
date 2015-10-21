@@ -237,6 +237,13 @@ def delete_stack_cmd(argv):
 	stack = select_stack(stack_name)
 	delete_stack(stack, verbose=True)
 
+def show_outputs_cmd(argv):
+	cli.exit_with_usage(argv) if len(argv) < 2 else None
+	stack_name = argv[1]
+	stack = select_stack(stack_name)
+	outputs = stack["Outputs"]
+	print "\n".join([o["OutputKey"] + ": " + o["OutputValue"] for o in outputs])
+
 def show_template_cmd(argv):
 	release = argv[1] if len(argv) > 1 else None
 	template = download_template(release)
@@ -248,6 +255,7 @@ commands = {
 	"delete-stack": { "func": delete_stack_cmd,   "usage": "delete-stack <stack-name>" },
 	"resources":    { "func": list_resources_cmd, "usage": "resources <stack-name>" },
 	"template":     { "func": show_template_cmd,  "usage": "template [<release>]" },
+	"outputs":      { "func": show_outputs_cmd,   "usage": "outputs <stack-name>" },
 }
 
 if __name__ == '__main__':
