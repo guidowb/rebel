@@ -4,8 +4,13 @@ import aws
 import cli
 import sys
 import json
+import urllib, urllib2
 import cloudformation
 import config
+import ssl
+import time
+import random
+import string
 
 """ OpsManager API """
 
@@ -100,6 +105,62 @@ def opsmgr_get_tag(instance, key):
 	tag = next((t for t in tags if t["Key"] == key), None)
 	return tag["Value"] if tag is not None else None
 
+def opsmgr_url(stack):
+	instances = opsmgr_find_instances(stack)
+	if len(instances) < 1:
+		print stack["StackName"], "does not have an Ops Manager instance"
+		sys.exit(1)
+	return "https://" + instances[0]["PublicDnsName"]
+
+def opsmgr_request(stack, url):
+	url = opsmgr_url(stack) + url
+	request = urllib2.Request(url)
+	request.add_header('Accept', 'application/json')
+	return request	
+
+def opsmgr_get(stack, url):
+	context = ssl._create_unverified_context()
+	request = opsmgr_request(stack, url)
+	request.add_header('Content-type', 'application/json')
+	return urllib2.urlopen(opsmgr_request(stack, url), context=context)
+
+def opsmgr_post(stack, url, data):
+	context = ssl._create_unverified_context()
+	return urllib2.urlopen(opsmgr_request(stack, url), data=urllib.urlencode(data), context=context)
+
+def opsmgr_wait(stack):
+	while True:
+		try:
+			opsmgr_get(stack, "/api/api_version")
+			break
+		except urllib2.HTTPError as error:
+			if error.code == 502:
+				pass
+			else:
+				break
+		except:
+			pass
+		time.sleep(5)
+
+def opsmgr_setup_admin(stack):
+	opsmgr_wait(stack)
+	username = "admin"
+	password = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(16))
+	setup = {
+		"setup[user_name]": username,
+		"setup[password]": password,
+		"setup[password_confirmation]": password,
+		"setup[eula_accepted]": "true"
+	}
+	try:
+		result = json.load(opsmgr_post(stack, "/api/setup", setup))
+		print "Set up new admin user"
+		print "Username:", username
+		print "Password:", password
+	except urllib2.HTTPError as error:
+		if error.code == 422:
+			print "Admin user is already set up, password remains unchanged"
+
 """ OpsManager CLI exercising OpsManager API """
 
 def list_images_cmd(argv):
@@ -130,11 +191,21 @@ def list_instances_cmd(argv):
 		state = "(pending)" if i["State"]["Name"] == "pending" else ""
 		print opsmgr_get_tag(i, "Stack"), "(" + opsmgr_get_tag(i, "Image") + ")", i["PublicDnsName"]
 
+def setup_cmd(argv):
+	cli.exit_with_usage(argv) if len(argv) < 2 else None
+	stack_name = argv[1]
+	stack = cloudformation.select_stack(stack_name)
+	if stack is None:
+		print "Stack", stack_name, "not found"
+		sys.exit(1)
+	opsmgr_setup_admin(stack)
+
 commands = {
 	"images":    { "func": list_images_cmd,    "usage": "images [<region>]" },
 	"launch":    { "func": launch_cmd,         "usage": "launch <stack-name> <version>" },
 	"instances": { "func": list_instances_cmd, "usage": "instances" },
-	"terminate": { "func": terminate_cmd,      "usage": "terminate <stack-name>" }
+	"terminate": { "func": terminate_cmd,      "usage": "terminate <stack-name>" },
+	"setup":     { "func": setup_cmd,          "usage": "setup <stack-name>" },
 }
 
 if __name__ == '__main__':
