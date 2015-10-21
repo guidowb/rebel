@@ -11,6 +11,7 @@ import ssl
 import time
 import random
 import string
+import base64
 
 """ OpsManager API """
 
@@ -116,6 +117,11 @@ def opsmgr_request(stack, url):
 	url = opsmgr_url(stack) + url
 	request = urllib2.Request(url)
 	request.add_header('Accept', 'application/json')
+	username = config.get("stack-" + stack["StackName"], "opsmgr-username", "admin")
+	password = config.get("stack-" + stack["StackName"], "opsmgr-password", None)
+	if password is not None:
+		base64string = base64.encodestring('%s:%s' % (username, password))[:-1]
+		request.add_header("Authorization", "Basic %s" % base64string)
 	return request	
 
 def opsmgr_get(stack, url):
@@ -142,7 +148,7 @@ def opsmgr_wait(stack):
 			pass
 		time.sleep(5)
 
-def opsmgr_setup_admin(stack):
+def opsmgr_setup(stack):
 	opsmgr_wait(stack)
 	username = "admin"
 	password = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(16))
@@ -154,12 +160,13 @@ def opsmgr_setup_admin(stack):
 	}
 	try:
 		result = json.load(opsmgr_post(stack, "/api/setup", setup))
-		print "Set up new admin user"
-		print "Username:", username
-		print "Password:", password
+		config.set("stack-" + stack["StackName"], "opsmgr-username", username)
+		config.set("stack-" + stack["StackName"], "opsmgr-password", password)
 	except urllib2.HTTPError as error:
 		if error.code == 422:
-			print "Admin user is already set up, password remains unchanged"
+			return
+		print "Error", error.code, error.reason
+		sys.exit(1)
 
 """ OpsManager CLI exercising OpsManager API """
 
@@ -198,7 +205,17 @@ def setup_cmd(argv):
 	if stack is None:
 		print "Stack", stack_name, "not found"
 		sys.exit(1)
-	opsmgr_setup_admin(stack)
+	opsmgr_setup(stack)
+
+def settings_cmd(argv):
+	cli.exit_with_usage(argv) if len(argv) < 2 else None
+	stack_name = argv[1]
+	stack = cloudformation.select_stack(stack_name)
+	if stack is None:
+		print "Stack", stack_name, "not found"
+		sys.exit(1)
+	settings = json.load(opsmgr_get(stack, "/api/installation_settings"))
+	print json.dumps(settings, indent=4)
 
 commands = {
 	"images":    { "func": list_images_cmd,    "usage": "images [<region>]" },
@@ -206,6 +223,7 @@ commands = {
 	"instances": { "func": list_instances_cmd, "usage": "instances" },
 	"terminate": { "func": terminate_cmd,      "usage": "terminate <stack-name>" },
 	"setup":     { "func": setup_cmd,          "usage": "setup <stack-name>" },
+	"settings":  { "func": settings_cmd,       "usage": "settings <stack-name>" },
 }
 
 if __name__ == '__main__':

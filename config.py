@@ -26,10 +26,41 @@ def get(section, key, default=UNSPECIFIED):
 		sys.exit(1)
 	return None
 
+def set(section, key, value):
+	global CONFIG
+	if CONFIG is None:
+		CONFIG = load_config()
+	try:
+		CONFIG.add_section(section)
+	except ConfigParser.DuplicateSectionError:
+		pass
+	CONFIG.set(section, key, value)
+	save_config()
+
+def remove(section, key):
+	global CONFIG
+	if CONFIG is None:
+		CONFIG = load_config()
+	CONFIG.remove_option(key)
+	save_config()
+
 def load_config():
 	config = ConfigParser.SafeConfigParser()
 	config.read(CONFIG_FILE)
 	return config
+
+def save_config():
+	global CONFIG
+	if CONFIG is not None:
+		with open(CONFIG_FILE, 'wb') as config_file:
+			CONFIG.write(config_file)
+
+def remove_section(section):
+	global CONFIG
+	if CONFIG is None:
+		CONFIG = load_config()
+	CONFIG.remove_section(section)
+	save_config()
 
 def main(argv):
 

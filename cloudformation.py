@@ -84,6 +84,7 @@ def delete_stack(stack, sync=True, verbose=False):
 	aws.aws_cli_verbose(command)
 	if sync:
 		await_stack(name, verbose)
+	config.remove_section("stack-" + name)
 
 def await_stack(name, verbose=False):
 	""" Wait for in-progress state to clear """
