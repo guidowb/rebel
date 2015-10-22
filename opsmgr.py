@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
+import os
 import aws
 import cli
 import sys
 import json
 import urllib, urllib2
+import httplib
 import cloudformation
 import config
 import ssl
@@ -15,7 +17,8 @@ import base64
 import yaml
 import mimetools
 import bosh
-import re
+import pivnet
+import subprocess
 
 """ OpsManager API """
 
@@ -117,9 +120,12 @@ def opsmgr_get_tag(instance, key):
 	tag = next((t for t in tags if t["Key"] == key), None)
 	return tag["Value"] if tag is not None else None
 
-def opsmgr_url(stack):
+def opsmgr_hostname(stack):
 	instance = opsmgr_select_instance(stack)
-	return "https://" + instance["PublicDnsName"]
+	return instance["PublicDnsName"]
+
+def opsmgr_url(stack):
+	return "https://" + opsmgr_hostname(stack)
 
 def opsmgr_request(stack, url):
 	url = opsmgr_url(stack) + url
@@ -137,6 +143,21 @@ def opsmgr_get(stack, url):
 	request = opsmgr_request(stack, url)
 	request.add_header('Accept', 'application/json')
 	return urllib2.urlopen(opsmgr_request(stack, url), context=context)
+
+def opsmgr_delete(stack, url):
+	context = ssl._create_unverified_context()
+	username = config.get("stack-" + stack["StackName"], "opsmgr-username", "admin")
+	password = config.get("stack-" + stack["StackName"], "opsmgr-password", None)
+	headers = {}
+	if password is not None:
+		base64string = base64.encodestring('%s:%s' % (username, password))[:-1]
+		headers = {
+			"Authorization": "Basic %s" % base64string
+		}
+	connection = httplib.HTTPSConnection(opsmgr_hostname(stack), context=context)
+	connection.request("DELETE", url, headers=headers)
+	response = connection.getresponse()
+	return response
 
 def opsmgr_post(stack, url, data):
 	context = ssl._create_unverified_context()
@@ -203,6 +224,12 @@ def opsmgr_install(stack):
 	config.set("stack-" + stack["StackName"], "opsmgr-install", install_id)
 	return install_id
 
+def opsmgr_uninstall(stack):
+	install = json.load(opsmgr_delete(stack, "/api/installation"))
+	install_id = str(install["install"]["id"])
+	config.set("stack-" + stack["StackName"], "opsmgr-install", install_id)
+	return install_id
+
 def opsmgr_logs(stack, install_id=None):
 	if install_id is None:
 		install_id = config.get("stack-" + stack["StackName"], "opsmgr-install", None)
@@ -245,6 +272,55 @@ def opsmgr_tail_logs(stack, install_id=None):
 			break
 		time.sleep(5)
 
+def opsmgr_exec(stack, argv):
+	command = [
+		'ssh',
+		'-o', 'UserKnownHostsFile=/dev/null',
+		'-o', 'StrictHostKeyChecking=no',
+		'-i', config.get("aws", "private-key"),
+		'ubuntu@' + opsmgr_hostname(stack)
+	]
+	try:
+		return subprocess.check_output(command + argv, stderr=subprocess.STDOUT)
+	except subprocess.CalledProcessError as error:
+		print 'Command failed with exit code', error.returncode
+		print error.output
+		sys.exit(error.returncode)
+
+def opsmgr_import_product(stack, product, release):
+	folder = product["slug"]
+	print "Creating folder for product", folder
+	command = [
+		'mkdir', '-p', folder
+	]
+	opsmgr_exec(stack, command)
+	files = pivnet.pivnet_files(product, release)
+	for file in files:
+		download_filename = os.path.basename(file["aws_object_key"])
+		if not download_filename.endswith(".pivotal"):
+			continue
+		download_filename = folder + "/" + download_filename
+		download_url = file["_links"]["download"]["href"]
+		print "Downloading file", download_filename
+		command = [
+			'wget', '-q',
+			'-O', download_filename,
+			'--post-data=""',
+			'--header="Authorization: Token ' + config.get('pivotal-network', 'token') + '"',
+			download_url
+		]
+		opsmgr_exec(stack, command)
+		print "Importing file", download_filename
+		username = config.get("stack-" + stack["StackName"], "opsmgr-username", "admin")
+		password = config.get("stack-" + stack["StackName"], "opsmgr-password", None)
+		command = [
+			'curl', '-k', 'https://localhost/api/products',
+			'-F', 'product[file]=@' + download_filename,
+			'-X', 'POST',
+			'-u', username + ':' + password
+		]
+		opsmgr_exec(stack, command)
+
 """ OpsManager CLI exercising OpsManager API """
 
 def list_images_cmd(argv):
@@ -270,9 +346,6 @@ def terminate_cmd(argv):
 	cli.exit_with_usage(argv) if len(argv) < 2 else None
 	stack_name = argv[1]
 	stack = cloudformation.select_stack(stack_name)
-	if stack is None:
-		print "Stack", stack_name, "not found"
-		sys.exit(1)
 	opsmgr_terminate_instances(stack)
 
 def list_instances_cmd(argv):
@@ -285,9 +358,6 @@ def settings_cmd(argv):
 	cli.exit_with_usage(argv) if len(argv) < 2 else None
 	stack_name = argv[1]
 	stack = cloudformation.select_stack(stack_name)
-	if stack is None:
-		print "Stack", stack_name, "not found"
-		sys.exit(1)
 	settings = json.load(opsmgr_get(stack, "/api/installation_settings"))
 	print json.dumps(settings, indent=4)
 
@@ -295,20 +365,32 @@ def install_cmd(argv):
 	cli.exit_with_usage(argv) if len(argv) < 2 else None
 	stack_name = argv[1]
 	stack = cloudformation.select_stack(stack_name)
-	if stack is None:
-		print "Stack", stack_name, "not found"
-		sys.exit(1)
 	install_id = opsmgr_install(stack)
+	opsmgr_tail_logs(stack, install_id)
+
+def uninstall_cmd(argv):
+	cli.exit_with_usage(argv) if len(argv) < 2 else None
+	stack_name = argv[1]
+	stack = cloudformation.select_stack(stack_name)
+	install_id = opsmgr_uninstall(stack)
 	opsmgr_tail_logs(stack, install_id)
 
 def logs_cmd(argv):
 	cli.exit_with_usage(argv) if len(argv) < 2 else None
 	stack_name = argv[1]
 	stack = cloudformation.select_stack(stack_name)
-	if stack is None:
-		print "Stack", stack_name, "not found"
-		sys.exit(1)
 	opsmgr_tail_logs(stack)
+
+def import_cmd(argv):
+	cli.exit_with_usage(argv) if len(argv) < 4 else None
+	stack_name = argv[1]
+	product_pattern = argv[2]
+	release_pattern = argv[3]
+	stack = cloudformation.select_stack(stack_name)
+	product = pivnet.pivnet_select_product(product_pattern)
+	release = pivnet.pivnet_select_release(product, release_pattern)
+	pivnet.pivnet_accept_eula(product, release)
+	opsmgr_import_product(stack, product, release)
 
 commands = {
 	"images":    { "func": list_images_cmd,    "usage": "images [<region>]" },
@@ -317,7 +399,9 @@ commands = {
 	"terminate": { "func": terminate_cmd,      "usage": "terminate <stack-name>" },
 	"settings":  { "func": settings_cmd,       "usage": "settings <stack-name>" },
 	"install":   { "func": install_cmd,        "usage": "install <stack-name>" },
+	"uninstall": { "func": uninstall_cmd,      "usage": "uninstall <stack-name>" },
 	"logs":      { "func": logs_cmd,           "usage": "logs <stack-name>" },
+	"import":    { "func": import_cmd,         "usage": "import <stack-name> <product-name> <release-name>" },
 }
 
 if __name__ == '__main__':
