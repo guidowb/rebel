@@ -15,6 +15,7 @@ import base64
 import yaml
 import mimetools
 import bosh
+import re
 
 """ OpsManager API """
 
@@ -193,6 +194,57 @@ def opsmgr_setup(stack):
 		print "Error", error.code, error.reason
 		sys.exit(1)
 
+def opsmgr_install(stack):
+	params = {
+		"ignore_warnings": "true"
+	}
+	install = json.load(opsmgr_post(stack, "/api/installation", urllib.urlencode(params)))
+	install_id = str(install["install"]["id"])
+	config.set("stack-" + stack["StackName"], "opsmgr-install", install_id)
+	return install_id
+
+def opsmgr_logs(stack, install_id=None):
+	if install_id is None:
+		install_id = config.get("stack-" + stack["StackName"], "opsmgr-install", None)
+	if install_id is None:
+		print "No installation in progress"
+		return []
+	log = opsmgr_get(stack, "/api/installation/" + str(install_id) + "/logs")
+	return json.load(log)["logs"].splitlines()
+
+def opsmgr_tail_logs(stack, install_id=None):
+	if install_id is None:
+		install_id = config.get("stack-" + stack["StackName"], "opsmgr-install", None)
+	if install_id is None:
+		print "No installation in progress"
+		return
+	lines_shown = 0
+	in_event = False
+	while True:
+		log_lines = opsmgr_logs(stack, install_id)
+		for line in log_lines[lines_shown:]:
+			if line.startswith('{'):
+				event = json.loads(line)
+				event_type = event.get("type", None)
+				if event_type == "step_started":
+					print '+--', event.get("id", "step")
+					print '|'
+					in_event = True
+				if event_type == "step_finished":
+					print '|'
+					print '+--', event.get("id", "step")
+					print
+					in_event = False
+			else:
+				if in_event:
+					print '|  ',
+				print line
+		lines_shown = len(log_lines)
+		install_status = json.load(opsmgr_get(stack, "/api/installation/" + str(install_id)))["status"]
+		if not install_status == "running":
+			break
+		time.sleep(5)
+
 """ OpsManager CLI exercising OpsManager API """
 
 def list_images_cmd(argv):
@@ -239,12 +291,33 @@ def settings_cmd(argv):
 	settings = json.load(opsmgr_get(stack, "/api/installation_settings"))
 	print json.dumps(settings, indent=4)
 
+def install_cmd(argv):
+	cli.exit_with_usage(argv) if len(argv) < 2 else None
+	stack_name = argv[1]
+	stack = cloudformation.select_stack(stack_name)
+	if stack is None:
+		print "Stack", stack_name, "not found"
+		sys.exit(1)
+	install_id = opsmgr_install(stack)
+	opsmgr_tail_logs(stack, install_id)
+
+def logs_cmd(argv):
+	cli.exit_with_usage(argv) if len(argv) < 2 else None
+	stack_name = argv[1]
+	stack = cloudformation.select_stack(stack_name)
+	if stack is None:
+		print "Stack", stack_name, "not found"
+		sys.exit(1)
+	opsmgr_tail_logs(stack)
+
 commands = {
 	"images":    { "func": list_images_cmd,    "usage": "images [<region>]" },
 	"launch":    { "func": launch_cmd,         "usage": "launch <stack-name> <version>" },
 	"instances": { "func": list_instances_cmd, "usage": "instances" },
 	"terminate": { "func": terminate_cmd,      "usage": "terminate <stack-name>" },
 	"settings":  { "func": settings_cmd,       "usage": "settings <stack-name>" },
+	"install":   { "func": install_cmd,        "usage": "install <stack-name>" },
+	"logs":      { "func": logs_cmd,           "usage": "logs <stack-name>" },
 }
 
 if __name__ == '__main__':
