@@ -8,9 +8,6 @@ import urllib
 import zipfile
 import subprocess
 
-def main(argv):
-	print aws_cli_verbose(argv[1:])
-
 HOME_DIR = os.path.expanduser("~")
 AWS_CLI_DIR = HOME_DIR + "/.aws-cli"
 AWS_CLI_BIN = AWS_CLI_DIR + "/bin/aws"
@@ -62,6 +59,9 @@ def mkdir_p(dir):
 	except os.error, e:
 		if e.errno != errno.EEXIST:
 			raise
+
+def main(argv):
+	print aws_cli_verbose(argv[1:])
 
 if __name__ == '__main__':
 	main(sys.argv)
