@@ -28,6 +28,7 @@ def aws_cli_verbose(argv):
 	try:
 		return aws_cli(argv)
 	except subprocess.CalledProcessError as error:
+		print ' '.join(argv)
 		print 'Command failed with exit code', error.returncode
 		print error.output
 		sys.exit(error.returncode)
