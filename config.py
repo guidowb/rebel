@@ -3,7 +3,7 @@
 import sys
 import ConfigParser
 
-CONFIG_FILE = "ramble.cfg"
+CONFIG_FILE = "rebel.cfg"
 CONFIG = None
 UNSPECIFIED = {}
 
@@ -64,7 +64,7 @@ def remove_section(section):
 
 def main(argv):
 
-	""" Pre-configure ramble with all required values so that it can run unattended later """
+	""" Pre-configure rebel with all required values so that it can run unattended later """
 
 if __name__ == "__main__":
 	main(sys.argv)

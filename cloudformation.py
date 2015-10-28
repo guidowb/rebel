@@ -26,7 +26,7 @@ def download_template(version, verbose=False):
 		print "Downloading CloudFormation template for Elastic Runtime version", version
 	template = json.load(pivnet.pivnet_open(files[0]))
 	metadata = {
-		"created-by": "ramble",
+		"created-by": "rebel",
 		"pcf-version": version,
 	}
 	template["Metadata"] = metadata
@@ -34,7 +34,7 @@ def download_template(version, verbose=False):
 
 def list_stacks(stack_pattern = ""):
 	stacks = json.loads(aws.aws_cli_verbose(['cloudformation', 'describe-stacks']))["Stacks"]
-	stacks = [s for s in stacks if is_ramble_stack(s)]
+	stacks = [s for s in stacks if is_rebel_stack(s)]
 	stacks = [s for s in stacks if stack_pattern in s["StackName"]]
 	return stacks
 
@@ -137,7 +137,7 @@ def get_stack_resources(stack_id):
 def set_tags(template):
 	""" AWS limits us to 10 """
 	tags = [
-		{ "Key": "created-by",  "Value": "ramble" },
+		{ "Key": "created-by",  "Value": "rebel" },
 		{ "Key": "pcf-version", "Value": template["Metadata"]["pcf-version"] }
 	]
 	return tags
@@ -152,8 +152,8 @@ def get_output(stack, key):
 	output = next((o for o in outputs if o["OutputKey"] == key), None)
 	return output["OutputValue"] if output is not None else None
 
-def is_ramble_stack(stack):
-	return get_tag(stack, "created-by") == "ramble"
+def is_rebel_stack(stack):
+	return get_tag(stack, "created-by") == "rebel"
 
 def get_parameters(template):
 	parameters = []
