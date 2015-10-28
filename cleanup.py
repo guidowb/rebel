@@ -187,7 +187,15 @@ def remove_vpc_rds_instances(vpc):
 		remove_rds_subnet_group(instance["DBSubnetGroup"]["DBSubnetGroupName"])
 
 def remove_vpc(vpc):
-	print "remove vpc", vpc, "dependencies"
+	command = [
+		'ec2',
+		'describe-vpcs',
+		'--filters', 'Name=vpc-id,Values=' + vpc
+	]
+	vpcs = aws(command)["Vpcs"]
+	if len(vpcs) < 1:
+		return
+	print "remove dependencies of vpc", vpc
 	remove_vpc_load_balancers(vpc)
 	remove_vpc_instances(vpc)
 	remove_vpc_rds_instances(vpc)
@@ -214,6 +222,61 @@ def remove_all_vpcs():
 		if not vpc["IsDefault"]:
 			remove_vpc(vpc["VpcId"])
 
+def remove_bucket(bucket):
+	try:
+		command = [
+			's3', 'ls',
+			's3://' + bucket
+		]
+		aws_module.aws_cli(command)
+	except:
+		return
+	print "remove bucket", bucket
+	command = [
+		's3', 'rm', '--recursive',
+		's3://' + bucket
+	]
+	aws(command)
+	command = [
+		's3', 'rb',
+		's3://' + bucket
+	]
+	aws(command)
+
+def remove_all_buckets():
+	command = [
+		's3', 'ls'
+	]
+	buckets = aws_module.aws_cli_verbose(command)
+	for bucket in buckets:
+		line = bucket.split(' ')
+		remove_bucket(line[2])
+
+def remove_stack(stack):
+	command = [
+		'cloudformation',
+		'list-stack-resources',
+		'--stack-name', stack
+	]
+	resources = aws(command)["StackResourceSummaries"]
+	stacks =  [ resource for resource in resources if resource["ResourceType"] == "AWS::CloudFormation::Stack"]
+	vpcs =    [ resource for resource in resources if resource["ResourceType"] == "AWS::EC2::VPC"]
+	buckets = [ resource for resource in resources if resource["ResourceType"] == "AWS::S3::Bucket"]
+	for substack in stacks:
+		print "remove sub-stack", substack["LogicalResourceId"]
+		remove_stack(substack["PhysicalResourceId"])
+	for vpc in vpcs:
+		remove_vpc(vpc["PhysicalResourceId"])
+	for bucket in buckets:
+		remove_bucket(bucket["PhysicalResourceId"])
+	print "remove stack", stack
+	command = [
+		'cloudformation',
+		'delete-stack',
+		'--stack-name', stack
+	]
+	aws(command)	
+
 def cleanup_all(argv):
 	remove_all_vpcs()
 	remove_orphaned_volumes()
@@ -225,7 +288,9 @@ def cleanup_vpc(argv):
 	remove_vpc(vpc)
 
 def cleanup_stack(argv):
-	TBD
+	cli.exit_with_usage(argv) if len(argv) < 2 else None
+	stack = argv[1]
+	remove_stack(stack)
 
 commands = {
 	"all":   { "func": cleanup_all,   "usage": "all" },
