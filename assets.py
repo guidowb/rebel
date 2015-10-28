@@ -23,11 +23,17 @@ type_defs = {
 		'list': [ 'ec2', 'describe-vpcs', 'Vpcs'],
 		'delete': [ 'ec2', 'delete-vpc', '--vpc-id', '{}' ],
 		'children': [
-			{ 'type': 'network-interface', 'filter': [ '--filters', 'Name=vpc-id,Values={},Name=attachment.delete-on-termination,Values=false' ] },
 			{ 'type': 'load-balancer',     'parent-ref': 'VPCId' },
-			{ 'type': 'subnet',            'filter': [ '--filters', 'Name=vpc-id,Values={}' ]  },
-			{ 'type': 'security-group',    'filter': [ '--filters', 'Name=vpc-id,Values={}' ]  },
+			{ 'type': 'route-table',       'filter': [ '--filters', 'Name=vpc-id,Values={}' ] },
+			{ 'type': 'subnet',            'filter': [ '--filters', 'Name=vpc-id,Values={}' ] },
+			{ 'type': 'network-interface', 'filter': [ '--filters', 'Name=vpc-id,Values={},Name=attachment.delete-on-termination,Values=false' ] },
+			{ 'type': 'security-group',    'filter': [ '--filters', 'Name=vpc-id,Values={}' ] },
 		]
+	},
+	'route-table': {
+		'id': 'RouteTableId',
+		'list': [ 'ec2', 'describe-route-tables', 'RouteTables' ],
+		'delete': [ 'ec2', 'delete-route-table', '--route-table-id', '{}' ],
 	},
 	'network-interface': {
 		'id': 'NetworkInterfaceId',
@@ -43,9 +49,9 @@ type_defs = {
 		'id': 'InstanceId',
 		'list': [ 'ec2', 'describe-instances', 'Reservations,Instances' ],
 		'delete': [ 'ec2', 'terminate-instances', '--instance-ids', '{}' ],
-		'children': [
-			{ 'type': 'network-interface', 'filter': [ '--filters', 'Name=attachment.instance-id,Values={}' ]  },
-		]
+#		'children': [
+#			{ 'type': 'network-interface', 'filter': [ '--filters', 'Name=attachment.instance-id,Values={}' ]  },
+#		]
 	},
 	'subnet': {
 		'id': 'SubnetId',
@@ -113,6 +119,19 @@ def print_tree(tree, indent=0):
 		print ' ' * indent + item["type"], item["id"]
 		print_tree(item.get("children", []), indent + 3)
 
+def delete_tree(tree, indent=0):
+	for item in tree:
+		children = item.get("children", [])
+		if len(children) > 0:
+			print ' ' * indent + "deleting dependencies of", item["type"], item["id"]
+			delete_tree(children, indent + 3)
+		type_def = type_defs[item["type"]]
+		command = type_def.get("delete", None)
+		if command is not None:
+			print ' ' * indent + "deleting", item["type"], item["id"]
+			command = [element.replace('{}', item["id"]) for element in command]
+			aws.aws_cli_verbose(command)
+
 def list_cmd(argv):
 	cli.exit_with_usage(argv) if len(argv) < 2 else None
 	type_name = argv[1]
@@ -120,15 +139,23 @@ def list_cmd(argv):
 	print '\n'.join([item["id"] for item in items])
 
 def tree_cmd(argv):
-	cli.exit_with_usage(argv) if len(argv) < 2 else None
+	cli.exit_with_usage(argv) if len(argv) < 3 else None
 	type_name = argv[1]
-	item_id = argv[2] if len(argv) > 2 else None
+	item_id = argv[2] if argv[2] != "all" else None
 	tree = get_tree(type_name, item_id)
 	print_tree(tree)
 
+def delete_cmd(argv):
+	cli.exit_with_usage(argv) if len(argv) < 3 else None
+	type_name = argv[1]
+	item_id = argv[2] if argv[2] != "all" else None
+	tree = get_tree(type_name, item_id)
+	delete_tree(tree)
+
 commands = {
 	"list":    { "func": list_cmd,    "usage": "list <type>" },
-	"tree":    { "func": tree_cmd,    "usage": "tree <type> [<id>]" },
+	"tree":    { "func": tree_cmd,    "usage": "tree <type> all|<id>" },
+	"delete":  { "func": delete_cmd,  "usage": "delete <type> all|<id>" },
 }
 
 if __name__ == '__main__':
