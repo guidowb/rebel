@@ -26,8 +26,10 @@ def pivnet_post(url, data):
 
 def pivnet_products(product_pattern = ""):
 	url = 'https://network.pivotal.io/api/v2/products'
-	products = json.load(pivnet_get(url))
-	products = [p for p in products["products"] if product_pattern in p["name"]]
+	all_products = json.load(pivnet_get(url))
+	products = [p for p in all_products["products"] if product_pattern == p["name"]]
+	if len(products) == 0:
+		products = [p for p in all_products["products"] if product_pattern in p["name"]]
 	return products
 
 def pivnet_select_product(product_pattern):
@@ -45,8 +47,10 @@ def pivnet_select_product(product_pattern):
 
 def pivnet_releases(product, release_pattern = ""):
 	url = 'https://network.pivotal.io/api/v2/products/' + str(product["id"]) + '/releases'
-	releases = json.load(pivnet_get(url))
-	releases = [r for r in releases["releases"] if release_pattern in r["version"]]
+	all_releases = json.load(pivnet_get(url))
+	releases = [r for r in all_releases["releases"] if release_pattern == r["version"]]
+	if len(releases) == 0:
+		releases = [r for r in all_releases["releases"] if release_pattern in r["version"]]
 	return releases
 
 def pivnet_select_release(product, release_pattern=None):
@@ -75,8 +79,10 @@ def pivnet_latest_release(product, controlled=False):
 
 def pivnet_files(product, release, file_pattern = ""):
 	url = 'https://network.pivotal.io/api/v2/products/' + str(product["id"]) + '/releases/' + str(release["id"]) + '/product_files'
-	files = json.load(pivnet_get(url))
-	files = [f for f in files["product_files"] if file_pattern in os.path.basename(f["aws_object_key"])]
+	all_files = json.load(pivnet_get(url))
+	files = [f for f in all_files["product_files"] if file_pattern == os.path.basename(f["aws_object_key"])]
+	if len(files) == 0:
+		files = [f for f in all_files["product_files"] if file_pattern in os.path.basename(f["aws_object_key"])]
 	return files
 
 def pivnet_accept_eula(product, release):
