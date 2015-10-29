@@ -272,7 +272,7 @@ def opsmgr_tail_logs(stack, install_id=None):
 			break
 		time.sleep(5)
 
-def opsmgr_exec(stack, argv):
+def opsmgr_exec(stack, argv, stdin=None):
 	command = [
 		'ssh',
 		'-o', 'UserKnownHostsFile=/dev/null',
@@ -281,7 +281,7 @@ def opsmgr_exec(stack, argv):
 		'ubuntu@' + opsmgr_hostname(stack)
 	]
 	try:
-		return subprocess.check_output(command + argv, stderr=subprocess.STDOUT)
+		return subprocess.check_output(command + argv, stdin=stdin, stderr=subprocess.STDOUT)
 	except subprocess.CalledProcessError as error:
 		print 'Command failed with exit code', error.returncode
 		print error.output
