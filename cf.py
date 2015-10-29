@@ -77,6 +77,13 @@ def cf_config(stack):
 	diego_brain_settings = find(elastic_runtime["jobs"], "diego_brain")
 	diego_brain_settings["elb_names"] = find_load_balancer(stack, output(stack, "PcfElbSshDnsName"))["LoadBalancerName"]
 
+	haproxy_settings = find(elastic_runtime["jobs"], "ha_proxy")["properties"]
+	set(haproxy_settings, "ssl_rsa_certificate", {
+		"private_key_pem": get_private_key(),
+		"cert_pem": get_server_certificate()
+		})
+	set(haproxy_settings, "skip_cert_verify", True)
+
 	set_instances(elastic_runtime, "nfs_server",  0)
 	set_instances(elastic_runtime, "mysql_proxy", 0)
 	set_instances(elastic_runtime, "mysql",       0)
