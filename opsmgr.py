@@ -394,7 +394,7 @@ def import_cmd(argv):
 
 commands = {
 	"images":    { "func": list_images_cmd,    "usage": "images [<region>]" },
-	"launch":    { "func": launch_cmd,         "usage": "launch <stack-name> <version>" },
+	"launch":    { "func": launch_cmd,         "usage": "launch <stack-name> [<version>]" },
 	"instances": { "func": list_instances_cmd, "usage": "instances" },
 	"terminate": { "func": terminate_cmd,      "usage": "terminate <stack-name>" },
 	"settings":  { "func": settings_cmd,       "usage": "settings <stack-name>" },
