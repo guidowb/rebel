@@ -252,23 +252,26 @@ def remove_all_buckets():
 		line = bucket.split(' ')
 		remove_bucket(line[2])
 
-def remove_stack(stack):
+def remove_stack_resources(stack):
+	print "remove stack resources for", stack
 	command = [
 		'cloudformation',
 		'list-stack-resources',
 		'--stack-name', stack
 	]
 	resources = aws(command)["StackResourceSummaries"]
-	stacks =  [ resource for resource in resources if resource["ResourceType"] == "AWS::CloudFormation::Stack"]
-	vpcs =    [ resource for resource in resources if resource["ResourceType"] == "AWS::EC2::VPC"]
-	buckets = [ resource for resource in resources if resource["ResourceType"] == "AWS::S3::Bucket"]
+	stacks =  [ resource["PhysicalResourceId"] for resource in resources if resource["ResourceType"] == "AWS::CloudFormation::Stack"]
+	vpcs =    [ resource["PhysicalResourceId"] for resource in resources if resource["ResourceType"] == "AWS::EC2::VPC"]
+	buckets = [ resource["PhysicalResourceId"] for resource in resources if resource["ResourceType"] == "AWS::S3::Bucket"]
 	for substack in stacks:
-		print "remove sub-stack", substack["LogicalResourceId"]
-		remove_stack(substack["PhysicalResourceId"])
+		remove_stack_resources(substack)
 	for vpc in vpcs:
-		remove_vpc(vpc["PhysicalResourceId"])
+		remove_vpc(vpc)
 	for bucket in buckets:
-		remove_bucket(bucket["PhysicalResourceId"])
+		remove_bucket(bucket)
+
+def remove_stack(stack):
+	remove_stack_resources(stack)
 	print "remove stack", stack
 	command = [
 		'cloudformation',
