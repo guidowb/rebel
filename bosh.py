@@ -46,9 +46,9 @@ def bosh_config(stack):
 	}
 	director_configuration["database_type"] = "external"
 	director_configuration["external_database_options"] = {
-		"host":    output(stack, "PcfRdsAddress"),
-		"port": output(stack, "PcfRdsPort"),
-		"user": output(stack, "PcfRdsUsername"),
+		"host":     output(stack, "PcfRdsAddress"),
+		"port":     output(stack, "PcfRdsPort"),
+		"user":     output(stack, "PcfRdsUsername"),
 		"password": output(stack, "PcfRdsPassword"),
 		"database": output(stack, "PcfRdsDBName"),
 	}
