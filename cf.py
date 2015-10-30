@@ -28,7 +28,9 @@ def find(properties, key):
 def set(properties, key, value):
 	find(properties, key)["value"] = value
 
-def cf_config(stack):
+def cf_config(stack, version=None):
+	opsmgr.opsmgr_install_if_needed(stack, "cf", "Elastic Runtime", version)
+
 	settings = json.load(opsmgr.opsmgr_get(stack, "/api/installation_settings"))
 
 	aws_region = output(stack, "PcfPublicSubnetAvailabilityZone")[:-1]
@@ -157,12 +159,13 @@ def create_cf_databases(stack):
 def config_cmd(argv):
 	cli.exit_with_usage(argv) if len(argv) < 2 else None
 	stack_name = argv[1]
+	version = argv[2] if len(argv) > 2 else ""
 	stack = cloudformation.select_stack(stack_name)
-	settings = cf_config(stack)
+	settings = cf_config(stack, version)
 	print json.dumps(settings, indent=4)
 
 commands = {
-	"config": { "func": config_cmd, "usage": "config <stack-name>" },
+	"config": { "func": config_cmd, "usage": "config <stack-name> [<version>]" },
 }
 
 if __name__ == '__main__':

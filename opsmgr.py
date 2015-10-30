@@ -321,6 +321,41 @@ def opsmgr_import_product(stack, product, release):
 		]
 		opsmgr_exec(stack, command)
 
+def opsmgr_available_products(stack):
+	products = json.load(opsmgr_get(stack, "/api/products"))
+	return products
+
+def opsmgr_installed_products(stack):
+	products = json.load(opsmgr_get(stack, "/api/installation_settings"))["products"]
+	products = [
+		{
+			"guid": p["guid"],
+			"name": p["identifier"],
+			"product_version": p["product_version"]
+		}
+		for p in products
+	]
+	return products
+
+def opsmgr_install_if_needed(stack, slug, product, release=None):
+	available_products = opsmgr_available_products(stack)
+	available_matches = [p for p in available_products if slug == p["name"]]
+	if len(available_products) < 1 or (release is not None and release not in available_matches[0]["product_version"]):
+		opsmgr_import(stack, product, release)
+		available_products = opsmgr_available_products(stack)
+		available_matches = [p for p in available_products if slug == p["name"]]
+
+	installed_products = opsmgr_installed_products(stack)
+	installed_matches = [p for p in installed_products if slug == p["name"]]
+	if len(installed_matches) < 1:
+		params = {
+			"name": slug,
+			"product_version": available_matches[0]["product_version"]
+		}
+		opsmgr_post(stack, "/api/installation_settings/products", urllib.urlencode(params))
+	elif installed_matches[0]["product_version"] != available_matches[0]["product_version"]:
+		TBD
+
 """ OpsManager CLI exercising OpsManager API """
 
 def list_images_cmd(argv):
@@ -392,6 +427,23 @@ def import_cmd(argv):
 	pivnet.pivnet_accept_eula(product, release)
 	opsmgr_import_product(stack, product, release)
 
+def products_cmd(argv):
+	cli.exit_with_usage(argv) if len(argv) < 2 else None
+	stack_name = argv[1]
+	stack = cloudformation.select_stack(stack_name)
+	available_products = opsmgr_available_products(stack)
+	installed_products = opsmgr_installed_products(stack)
+	for ap in available_products:
+		installed = [ ip for ip in installed_products if ip["name"] == ap["name"]]
+		if len(installed) > 0:
+			if installed[0]["product_version"] == ap["product_version"]:
+				ap["installed"] = "(installed)"
+			else:
+				ap["installed"] = "(" + installed[0]["product_version"] + " installed)"
+		else:
+			ap["installed"] = ""
+		print ap["name"], ap["product_version"], ap["installed"]
+
 commands = {
 	"images":    { "func": list_images_cmd,    "usage": "images [<region>]" },
 	"launch":    { "func": launch_cmd,         "usage": "launch <stack-name> [<version>]" },
@@ -402,6 +454,7 @@ commands = {
 	"uninstall": { "func": uninstall_cmd,      "usage": "uninstall <stack-name>" },
 	"logs":      { "func": logs_cmd,           "usage": "logs <stack-name>" },
 	"import":    { "func": import_cmd,         "usage": "import <stack-name> <product-name> <release-name>" },
+	"products":  { "func": products_cmd,       "usage": "products <stack-name>" },
 }
 
 if __name__ == '__main__':
