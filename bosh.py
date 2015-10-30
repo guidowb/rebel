@@ -23,7 +23,7 @@ def bosh_config(stack):
 	iaas_configuration["access_key_id"]     = output(stack, "PcfIamUserAccessKey")
 	iaas_configuration["secret_access_key"] = output(stack, "PcfIamUserSecretAccessKey")
 	iaas_configuration["vpc_id"]            = output(stack, "PcfVpc")
-	iaas_configuration["security_group"]    = get_security_group_name(output(stack, "PcfOpsManagerSecurityGroupId"))
+	iaas_configuration["security_group"]    = get_security_group_name(output(stack, "PcfVmsSecurityGroupId"))
 	iaas_configuration["key_pair_name"]     = output(stack, "PcfKeyPairName")
 	iaas_configuration["ssh_private_key"]   = get_private_key()
 	iaas_configuration["region"]            = output(stack, "PcfPublicSubnetAvailabilityZone")[:-1]
