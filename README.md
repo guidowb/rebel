@@ -8,8 +8,19 @@ Even in their current, incomplete state, the tools really ease AWS deployment of
 decided to share them in their current form. A complete AWS deployment workflow consists of
 just a couple of simple steps:
 
-1. Create a rebel.cfg file in your current directory with the following entries:
+1. Create a rebel.cfg file in your current directory with the following contents:
   ```
+  [pivotal-network]
+  token = <your-pivnet-access-token>
+
+  [aws]
+  ssl-certificate-arn = <your-certificate-arn>
+  nat-key-pair = <your-key-pair-name>
+  rds-username = <username-of-your-choosing>
+  rds-password = <password-of-your-choosing>
+  private-key = <path-to-your-private-key-pem-file>
+  system-domain = <your-domain>
+  apps-domain = <your-domain>
   ```
 
 2. Execute the following commands
@@ -42,8 +53,8 @@ just a couple of simple steps:
 4. Complete the installation
 
   ```
-  cf config <your-stack-name>
-  opsmgr.y install <your-stack-name>
+  cf.py config <your-stack-name>
+  opsmgr.py install <your-stack-name>
   ```
 
 ## Individual Command Line References
