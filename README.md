@@ -38,6 +38,7 @@ back-level support for 1.5 (that's where rebel started).*
 
   This will do a number of things for you (unless they were already done):
   - Download and install a private copy of the AWS command line
+  - Make you provide AWS credentials, and choose your region
   - Download the proper version of the CloudFormation template from PivNet
   - Populate that template and execute it
   - Capture the output values
@@ -46,7 +47,7 @@ back-level support for 1.5 (that's where rebel started).*
 
   After this, if you were to log in to the Ops Manager instance (you can but don't need to!)
   you will see a *green* (i.e. fully configured) Director tile. You can install it and take
-  it manually frome here, or proceed to set up the Elastic Runtime:
+  it manually from here, or proceed to set up the Elastic Runtime:
 
 3. Manually configure your DNS provider as instructed by the output of the previous steps
 
