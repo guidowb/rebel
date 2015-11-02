@@ -8,6 +8,10 @@ Even in their current, incomplete state, the tools really ease AWS deployment of
 decided to share them in their current form. A complete AWS deployment workflow consists of
 just a couple of simple steps:
 
+*At this time the tools are known to work with PCF 1.6 without changes. Other versions likely
+need some changes to the scripts. I intend to support all versions going forward, and maybe add
+back-level support for 1.5 (that's where rebel started).*
+
 1. Create a rebel.cfg file in your current directory with the following contents:
   ```
   [pivotal-network]
@@ -106,4 +110,45 @@ These commands will:
 - List the AWS resources that were created for the given stack
 - Show the template for the specified release (latest GA is default)
 
+### Ops Manager (opsmgr.py)
 
+```
+launch <stack-name> [<version>]
+terminate <stack-name>
+instances
+images [<region>]
+logs <stack-name>
+settings <stack-name>
+products <stack-name>
+import <stack-name> <product-name> <release-name>
+install <stack-name>
+uninstall <stack-name>
+```
+
+### Ops Manager Director (bosh.py)
+
+```
+config <stack-name>
+```
+
+### Elastic Runtime (cf.py)
+
+```
+config <stack-name> [<version>]
+```
+
+### Cleanup (cleanup.py)
+
+**USE WITH EXTREME CAUTION**
+
+```
+vpc <vpc-id>
+stack <stack-name>
+all
+```
+
+Removes (deletes/terminates) the named AWS resources *and all their dependencies*. This is powerful and hence somewhat dangerous. But it's a lot more efficient than trying to use CloudFormation to delete a stack, especially after you have
+created additional dependencies that are not managed by CloudFormation. You can specify a specific VPC, a CloudFormation
+stack, or "all". The latter will also wipe out *all your S3 buckets*!!!.
+
+**USE WITH EXTREME CAUTION**
