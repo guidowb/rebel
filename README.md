@@ -53,11 +53,22 @@ just a couple of simple steps:
 4. Complete the installation
 
   ```
-  cf.py config <your-stack-name>
+  cf.py config <your-stack-name> <pcf-version>
   opsmgr.py install <your-stack-name>
   ```
+  
+  This will:
+  - Download (directly from S3 to the Ops Manager VM) the Elastic Runtime tile
+  - Add it to the Ops Manager installation
+  - Configure it (so it goes *green*)
+  - Install everything that is queued to be installed (Director and Elastic Runtime)
+  - Tail the logs to your console
 
 ## Individual Command Line References
+
+Each of the individual modules implements a nicely consumable set of Python APIs. But to
+exercise those APIs, I also added a CLI implementation to each of them. Those CLIs are
+directly consumable for a variety of purposes. Here is the entire collection.
 
 ### Pivotal Network (pivnet.py)
 
@@ -68,3 +79,31 @@ accept-eula <product-name> <release-name>
 files <product-name> <release-name> [<file-name>]
 download <product-name> <release-name> [<file-name>]
 ```
+
+These commands will:
+- List all products available on PivNet (optionally accepting a partial name as filter)
+- List all releases available for a given product (optionally accepting a partial version number as filter)
+- Accept the EULA for a specified release (required before downloading any files)
+- List all the files for a given release
+- Download specified files
+
+### CloudFormation (cloudformation.py)
+
+```
+create-stack <stack-name> [<release>]
+delete-stack <stack-name>
+stacks [<stack-name>]
+outputs <stack-name>
+resources <stack-name>
+template [<release>]
+```
+
+These commands will:
+- Create an AWS stack of the given name (must be unique) using the template of the given version (latest GA is default)
+- Delete the stack of the given name (I actually recommend using "cleanup.py stack <stack-name>" instead, see below)
+- List the stacks you've created
+- List the CloudFormation outputs for the given stack
+- List the AWS resources that were created for the given stack
+- Show the template for the specified release (latest GA is default)
+
+
