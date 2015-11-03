@@ -337,11 +337,13 @@ def opsmgr_installed_products(stack):
 	]
 	return products
 
-def opsmgr_install_if_needed(stack, slug, product, release=None):
+def opsmgr_install_if_needed(stack, slug, product_pattern, release_pattern=None):
 	available_products = opsmgr_available_products(stack)
 	available_matches = [p for p in available_products if slug == p["name"]]
-	if len(available_products) < 1 or (release is not None and release not in available_matches[0]["product_version"]):
-		opsmgr_import(stack, product, release)
+	if len(available_matches) < 1 or (release_pattern is not None and release_pattern not in available_matches[0]["product_version"]):
+		product = pivnet.pivnet_select_product(product_pattern)
+		release = pivnet.pivnet_select_release(product, release_pattern)
+		opsmgr_import_product(stack, product, release)
 		available_products = opsmgr_available_products(stack)
 		available_matches = [p for p in available_products if slug == p["name"]]
 
@@ -375,7 +377,25 @@ def launch_cmd(argv):
 	opsmgr_setup(stack)
 	print "Configuring Ops Manager Director"
 	bosh.bosh_config(stack)
+
+	password = config.get("stack-" + stack["StackName"], "opsmgr-password", None)
+	opsmgr_dns = opsmgr_hostname(stack)
+	pcfelb_dns = cloudformation.get_output(stack, "PcfElbDnsName")
+	sshelb_dns = cloudformation.get_output(stack, "PcfElbSshDnsName")
+	app_domain = config.get("aws", "apps-domain")
+	sys_domain = config.get("aws", "system-domain")
+	print
 	print "Ops Manager started at", opsmgr_url(stack)
+	print "Admin username is admin, password is", password
+	print
+	print "Before proceeding to install Elastic runtime, you must create"
+	print "the following records through your DNS provider:"
+	print
+	print "  CNAME", "opsmgr." + sys_domain, opsmgr_dns
+	print "  CNAME", "*."      + app_domain, pcfelb_dns
+	print "  CNAME", "*.ssh."  + app_domain, sshelb_dns
+	print
+	print "Failure to do so will lead to install failures later."
 
 def terminate_cmd(argv):
 	cli.exit_with_usage(argv) if len(argv) < 2 else None
