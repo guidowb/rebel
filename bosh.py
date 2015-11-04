@@ -91,7 +91,7 @@ def get_security_group_name(group_id):
 	return group["GroupName"]
 
 def get_private_key():
-	with open(config.get("aws", "private-key"), 'rb') as keyfile:
+	with open(config.get("aws", "ssh-private-key"), 'rb') as keyfile:
 		return keyfile.read()
 
 def get_guid():

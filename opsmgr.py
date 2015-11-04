@@ -251,21 +251,24 @@ def opsmgr_tail_logs(stack, install_id=None):
 		log_lines = opsmgr_logs(stack, install_id)
 		for line in log_lines[lines_shown:]:
 			if line.startswith('{'):
-				event = json.loads(line)
-				event_type = event.get("type", None)
-				if event_type == "step_started":
-					print '+--', event.get("id", "step")
-					print '|'
-					in_event = True
-				if event_type == "step_finished":
-					print '|'
-					print '+--', event.get("id", "step")
-					print
-					in_event = False
-			else:
-				if in_event:
-					print '|  ',
-				print line
+				try:
+					event = json.loads(line)
+					event_type = event.get("type", None)
+					if event_type == "step_started":
+						print '+--', event.get("id", "step")
+						print '|'
+						in_event = True
+					if event_type == "step_finished":
+						print '|'
+						print '+--', event.get("id", "step")
+						print
+						in_event = False
+					continue
+				except:
+					pass
+			if in_event:
+				print '|  ',
+			print line
 		lines_shown = len(log_lines)
 		install_status = json.load(opsmgr_get(stack, "/api/installation/" + str(install_id)))["status"]
 		if not install_status == "running":
@@ -277,7 +280,7 @@ def opsmgr_exec(stack, argv, stdin=None):
 		'ssh',
 		'-o', 'UserKnownHostsFile=/dev/null',
 		'-o', 'StrictHostKeyChecking=no',
-		'-i', config.get("aws", "private-key"),
+		'-i', config.get("aws", "ssh-private-key"),
 		'ubuntu@' + opsmgr_hostname(stack)
 	]
 	try:
@@ -382,8 +385,8 @@ def launch_cmd(argv):
 	opsmgr_dns = opsmgr_hostname(stack)
 	pcfelb_dns = cloudformation.get_output(stack, "PcfElbDnsName")
 	sshelb_dns = cloudformation.get_output(stack, "PcfElbSshDnsName")
-	app_domain = config.get("aws", "apps-domain")
-	sys_domain = config.get("aws", "system-domain")
+	app_domain = config.get("cf", "apps-domain")
+	sys_domain = config.get("cf", "system-domain")
 	print
 	print "Ops Manager started at", opsmgr_url(stack)
 	print "Admin username is admin, password is", password

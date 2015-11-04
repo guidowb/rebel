@@ -72,8 +72,8 @@ def cf_config(stack, version=None):
 	set(router_settings, "enable_ssl", True)
 
 	controller_settings = find(elastic_runtime["jobs"], "cloud_controller")["properties"]
-	set(controller_settings, "system_domain", config.get("aws", "system-domain"))
-	set(controller_settings, "apps_domain",   config.get("aws", "apps-domain"))
+	set(controller_settings, "system_domain", config.get("cf", "system-domain"))
+	set(controller_settings, "apps_domain",   config.get("cf", "apps-domain"))
 	set(controller_settings, "allow_app_ssh_access", True)
 
 	diego_brain_settings = find(elastic_runtime["jobs"], "diego_brain")
@@ -127,7 +127,7 @@ def get_server_certificate():
 	return certificate_body
 
 def get_private_key():
-	with open(config.get("aws", "private-key"), 'rb') as keyfile:
+	with open(config.get("cf", "ssl-certificate-private-key"), 'rb') as keyfile:
 		return keyfile.read()
 
 def create_cf_databases(stack):
