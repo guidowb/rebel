@@ -8,9 +8,9 @@ Even in their current, incomplete state, the tools really ease AWS deployment of
 decided to share them in their current form. A complete AWS deployment workflow consists of
 just a couple of simple steps:
 
-*At this time the tools are known to work with PCF 1.6 without changes. Other versions likely
-need some changes to the scripts. I intend to support all versions going forward, and maybe add
-back-level support for 1.5 (that's where rebel started).*
+*At this time the tools are known to work with PCF 1.5.7 and 1.6.x without changes, although
+1.5.7 requires a manual import of a stemcell after adding the Elastic Runtime tile. Older
+versions may also work, but have not been tested.*
 
 1. Create a rebel.cfg file in your current directory with the following contents:
   ```
