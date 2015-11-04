@@ -63,7 +63,7 @@ def cf_config(stack, version=None):
 	set(blobstore_options, "packages_bucket",   output(stack, "PcfElasticRuntimeS3PackagesBucket"))
 	set(blobstore_options, "resources_bucket",  output(stack, "PcfElasticRuntimeS3ResourcesBucket"))
 
-	set(elastic_runtime["properties"], "syslog_port", 4443)
+	set(elastic_runtime["properties"], "logger_endpoint_port", 4443)
 	set(elastic_runtime["properties"], "allow_cross_container_traffic", True)
 
 	router_configuration = find(elastic_runtime["jobs"], "router")
