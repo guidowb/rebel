@@ -20,9 +20,12 @@ back-level support for 1.5 (that's where rebel started).*
   [aws]
   ssl-certificate-arn = <your-certificate-arn>
   nat-key-pair = <your-key-pair-name>
+  ssh-private-key = <path-to-your-private-key-pem-file-for-the-nat-key-pair>
   rds-username = <username-of-your-choosing>
   rds-password = <password-of-your-choosing>
-  private-key = <path-to-your-private-key-pem-file>
+  
+  [cf]
+  ssl-certificate-private-key = <path-to-your-private-key-pem-file-for-the-ssl-certificate>
   system-domain = <your-domain>
   apps-domain = <your-domain>
   ```
