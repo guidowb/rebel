@@ -19,7 +19,7 @@ def bosh_config(stack):
 
 	infrastructure = settings["infrastructure"]
 
-	iaas_configuration = infrastructure["iaas_configuration"]
+	infrastructure["iaas_configuration"] = iaas_configuration = infrastructure.get("iaas_configuration", {})
 	iaas_configuration["access_key_id"]     = output(stack, "PcfIamUserAccessKey")
 	iaas_configuration["secret_access_key"] = output(stack, "PcfIamUserSecretAccessKey")
 	iaas_configuration["vpc_id"]            = output(stack, "PcfVpc")
@@ -29,7 +29,7 @@ def bosh_config(stack):
 	iaas_configuration["region"]            = output(stack, "PcfPublicSubnetAvailabilityZone")[:-1]
 	iaas_configuration["encrypted"]         = False
 
-	director_configuration = infrastructure["director_configuration"]
+	infrastructure["director_configuration"] = director_configuration = infrastructure.get("director_configuration", {})
 	director_configuration["ntp_servers"]  = [
 		"0.amazon.pool.ntp.org",
 		"1.amazon.pool.ntp.org",

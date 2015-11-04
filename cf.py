@@ -15,18 +15,26 @@ from tempfile import SpooledTemporaryFile as tempfile
 def output(stack, key):
 	return cloudformation.get_output(stack, key)
 
+def first_of(stack, keys):
+	for key in keys:
+		output = cloudformation.get_output(stack, key)
+		if output is not None:
+			return output
+	return None
+
 def find(properties, key):
 	properties = [ p for p in properties if p["identifier"] == key ]
 	if len(properties) < 1:
-		print "property", key, "not found in settings"
-		sys.exit(1)
-	if len(properties) > 1:
-		print "more than one property matches", key
-		sys.exit(1)
+		return None
 	return properties[0]
 
 def set(properties, key, value):
-	find(properties, key)["value"] = value
+	if properties is None:
+		return
+	prop = find(properties, key)
+	if prop is None:
+		return
+	prop["value"] = value
 
 def cf_config(stack, version=None):
 	opsmgr.opsmgr_install_if_needed(stack, "cf", "Elastic Runtime", version)
@@ -58,10 +66,13 @@ def cf_config(stack, version=None):
 	set(blobstore_options, "endpoint",          aws.get_s3_endpoint(aws_region))
 	set(blobstore_options, "access_key",        output(stack, "PcfIamUserAccessKey"))
 	set(blobstore_options, "secret_key",        { "secret": output(stack, "PcfIamUserSecretAccessKey") })
-	set(blobstore_options, "buildpacks_bucket", output(stack, "PcfElasticRuntimeS3BuildpacksBucket"))
-	set(blobstore_options, "droplets_bucket",   output(stack, "PcfElasticRuntimeS3DropletsBucket"))
-	set(blobstore_options, "packages_bucket",   output(stack, "PcfElasticRuntimeS3PackagesBucket"))
-	set(blobstore_options, "resources_bucket",  output(stack, "PcfElasticRuntimeS3ResourcesBucket"))
+	# For PCF 1.5 and prior
+	set(blobstore_options, "bucket", first_of(stack, ["PcfElasticRuntimeS3Bucket", "PcfElasticRuntimeS3ResourcesBucket"]))
+	# For PCF 1.6 and beyond
+	set(blobstore_options, "buildpacks_bucket", first_of(stack, ["PcfElasticRuntimeS3BuildpacksBucket", "PcfElasticRuntimeS3Bucket"]))
+	set(blobstore_options, "droplets_bucket",   first_of(stack, ["PcfElasticRuntimeS3DropletsBucket",   "PcfElasticRuntimeS3Bucket"]))
+	set(blobstore_options, "packages_bucket",   first_of(stack, ["PcfElasticRuntimeS3PackagesBucket",   "PcfElasticRuntimeS3Bucket"]))
+	set(blobstore_options, "resources_bucket",  first_of(stack, ["PcfElasticRuntimeS3ResourcesBucket",  "PcfElasticRuntimeS3Bucket"]))
 
 	set(elastic_runtime["properties"], "logger_endpoint_port", 4443)
 	set(elastic_runtime["properties"], "allow_cross_container_traffic", True)
@@ -76,8 +87,11 @@ def cf_config(stack, version=None):
 	set(controller_settings, "apps_domain",   config.get("cf", "apps-domain"))
 	set(controller_settings, "allow_app_ssh_access", True)
 
-	diego_brain_settings = find(elastic_runtime["jobs"], "diego_brain")
-	diego_brain_settings["elb_names"] = find_load_balancer(stack, output(stack, "PcfElbSshDnsName"))["LoadBalancerName"]
+	ssh_elb_name = output(stack, "PcfElbSshDnsName")
+	if ssh_elb_name is not None:
+		diego_brain_settings = find(elastic_runtime["jobs"], "diego_brain")
+		if diego_brain_settings is not None:
+			diego_brain_settings["elb_names"] = find_load_balancer(stack, ssh_elb_name)["LoadBalancerName"]
 
 	haproxy_settings = find(elastic_runtime["jobs"], "ha_proxy")["properties"]
 	set(haproxy_settings, "ssl_rsa_certificate", {

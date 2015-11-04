@@ -212,6 +212,23 @@ def opsmgr_setup(stack):
 	except urllib2.HTTPError as error:
 		if error.code == 422:
 			return
+		if error.code != 404:
+			print "Error", error.code, error.reason
+			sys.exit(1)
+		pass
+	# The PCF 1.6 and beyond API was nont found (404), so we'll try the other way
+	user = {
+		"user[user_name]": username,
+		"user[password]": password,
+		"user[password_confirmation]": password
+	}
+	try:
+		result = json.load(opsmgr_post(stack, "/api/users", urllib.urlencode(user)))
+		config.set("stack-" + stack["StackName"], "opsmgr-username", username)
+		config.set("stack-" + stack["StackName"], "opsmgr-password", password)
+	except urllib2.HTTPError as error:
+		if error.code == 422:
+			return
 		print "Error", error.code, error.reason
 		sys.exit(1)
 
@@ -396,7 +413,8 @@ def launch_cmd(argv):
 	print
 	print "  CNAME", "opsmgr." + sys_domain, opsmgr_dns
 	print "  CNAME", "*."      + app_domain, pcfelb_dns
-	print "  CNAME", "*.ssh."  + app_domain, sshelb_dns
+	if sshelb_dns is not None:
+		print "  CNAME", "*.ssh."  + app_domain, sshelb_dns
 	print
 	print "Failure to do so will lead to install failures later."
 
