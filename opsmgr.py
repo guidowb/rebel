@@ -295,6 +295,7 @@ def opsmgr_tail_logs(stack, install_id=None):
 def opsmgr_exec(stack, argv, stdin=None):
 	command = [
 		'ssh',
+		'-q',
 		'-o', 'UserKnownHostsFile=/dev/null',
 		'-o', 'StrictHostKeyChecking=no',
 		'-i', config.get("aws", "ssh-private-key"),
@@ -340,6 +341,7 @@ def opsmgr_import_product(stack, product, release):
 			'-u', username + ':' + password
 		]
 		opsmgr_exec(stack, command)
+	opsmgr_resolve_stemcell_criteria(stack, product)
 
 def opsmgr_available_products(stack):
 	products = json.load(opsmgr_get(stack, "/api/products"))
@@ -376,7 +378,76 @@ def opsmgr_install_if_needed(stack, slug, product_pattern, release_pattern=None)
 		}
 		opsmgr_post(stack, "/api/installation_settings/products", urllib.urlencode(params))
 	elif installed_matches[0]["product_version"] != available_matches[0]["product_version"]:
-		TBD
+		TBD # Upgrade
+
+def opsmgr_get_product_metadata(stack, product):
+	folder = product["slug"]
+	pivotal_filename = folder + "/*.pivotal"
+	metadata_filename = "metadata/\\*.yml"
+	command = [
+		'unzip', '-p',
+		pivotal_filename,
+		metadata_filename
+	]
+	return yaml.load(opsmgr_exec(stack, command))
+
+def opsmgr_resolve_stemcell_criteria(stack, product):
+	metadata = opsmgr_get_product_metadata(stack, product)
+	stemcell_criteria = metadata.get("stemcell_criteria", None)
+	if stemcell_criteria is not None:
+		settings = json.load(opsmgr_get(stack, "/api/installation_settings"))
+		for p in settings.get("products", []):
+			stemcell = p.get("stemcell", None)
+			if stemcell is not None:
+				if stemcell_criteria["os"] == stemcell["os"] and stemcell_criteria["version"] == stemcell["version"]:
+					return
+		stemcell_criteria["infrastructure"] = "aws"
+		opsmgr_import_stemcell(stack, stemcell_criteria)
+
+def opsmgr_import_stemcell(stack, stemcell):
+	folder = "stemcells"
+	print "Creating folder for", folder
+	command = [
+		'mkdir', '-p', folder
+	]
+	opsmgr_exec(stack, command)
+	product = pivnet.pivnet_select_product("Stemcells")
+	release = pivnet.pivnet_select_release(product, stemcell["version"])
+	pivnet.pivnet_accept_eula(product, release)
+	files = pivnet.pivnet_files(product, release)
+	os_pattern = '-' + stemcell["os"] + '-'
+	is_pattern = '-' + stemcell["infrastructure"] + '-'
+	for file in files:
+		download_filename = os.path.basename(file["aws_object_key"])
+		if not os_pattern in download_filename:
+			continue
+		if not is_pattern in download_filename:
+			continue
+		download_filename = folder + "/" + download_filename
+		download_url = file["_links"]["download"]["href"]
+		print "Downloading stemcell", download_filename
+		command = [
+			'wget', '-q',
+			'-O', download_filename,
+			'--post-data=""',
+			'--header="Authorization: Token ' + config.get('pivotal-network', 'token') + '"',
+			download_url
+		]
+		opsmgr_exec(stack, command)
+		print "Importing stemcell", download_filename
+		username = config.get("stack-" + stack["StackName"], "opsmgr-username", "admin")
+		password = config.get("stack-" + stack["StackName"], "opsmgr-password", None)
+		command = [
+			'curl', '-k', 'https://localhost/api/stemcells',
+			'-F', 'stemcell[file]=@' + download_filename,
+			'-X', 'POST',
+			'-u', username + ':' + password
+		]
+		opsmgr_exec(stack, command)
+
+def opsmgr_available_stemcells(stack):
+	stemcells = json.load(opsmgr_get(stack, "/api/stemcells"))
+	return stemcells
 
 """ OpsManager CLI exercising OpsManager API """
 
@@ -485,6 +556,22 @@ def products_cmd(argv):
 			ap["installed"] = ""
 		print ap["name"], ap["product_version"], ap["installed"]
 
+def stemcells_cmd(argv):
+	cli.exit_with_usage(argv) if len(argv) < 2 else None
+	stack_name = argv[1]
+	stack = cloudformation.select_stack(stack_name)
+	available_stemcells = opsmgr_available_stemcells(stack)
+	print json.dumps(available_stemcells, indent=4)
+
+def metadata_cmd(argv):
+	cli.exit_with_usage(argv) if len(argv) < 3 else None
+	stack_name = argv[1]
+	product_pattern = argv[2]
+	stack = cloudformation.select_stack(stack_name)
+	product = pivnet.pivnet_select_product(product_pattern)
+	metadata = opsmgr_get_product_metadata(stack, product)
+	print json.dumps(metadata, indent=4)
+
 commands = {
 	"images":    { "func": list_images_cmd,    "usage": "images [<region>]" },
 	"launch":    { "func": launch_cmd,         "usage": "launch <stack-name> [<version>]" },
@@ -496,6 +583,8 @@ commands = {
 	"logs":      { "func": logs_cmd,           "usage": "logs <stack-name>" },
 	"import":    { "func": import_cmd,         "usage": "import <stack-name> <product-name> <release-name>" },
 	"products":  { "func": products_cmd,       "usage": "products <stack-name>" },
+	"stemcells": { "func": stemcells_cmd,      "usage": "stemcells <stack-name>" },
+	"metadata":  { "func": metadata_cmd,       "usage": "metadata <stack-name> <product-name>" },
 }
 
 if __name__ == '__main__':
