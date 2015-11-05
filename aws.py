@@ -17,6 +17,7 @@ AWS_CLI_INSTALL = AWS_CLI_DIR + "/awscli-bundle/install"
 
 def aws_cli(argv):
 	install_aws_cli_if_required()
+	verify_region(argv)
 	command = [
 		AWS_CLI_BIN,
 		'--no-paginate',
@@ -53,6 +54,27 @@ def get_s3_endpoint(region):
 	if region == 'us-east-1':
 		return 'http://s3.amazonaws.com'
 	return 'http://s3-' + region + '.amazonaws.com'
+
+def verify_region(argv):
+	if len(argv) > 1 and argv[0] == 'configure':
+		return
+	command = [
+		AWS_CLI_BIN,
+		'configure', 'get', 'region'
+	]
+	region = subprocess.check_output(command, stderr=subprocess.STDOUT)
+	segments = region.strip().split('-')
+	if len(region) < 1:
+		print "aws region must be specified"
+	elif len(segments) < 3 or len(segments[2]) > 1:
+		print "your aws region is set to", region
+		print "aws region must be of the form xx-yyyyy-n"
+		if len(segments) > 2 and len(segments[2]) > 1:
+			print "and the last part must specify a region number but no availability zone letter"
+	else:
+		return
+	print 'use "aws configure set region <region>" to fix your region before proceeding'
+	sys.exit(1)
 
 def mkdir_p(dir):
 	try:
