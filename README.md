@@ -53,7 +53,7 @@ Older versions may also work, but have not been tested.*
 
 3. Manually configure your DNS provider as instructed by the output of the previous steps
 
-  Assuming all goes well, the second command above will give you the Ops Manager URL and password, as well as
+  Assuming all goes well, the final command above will give you the Ops Manager URL and password, as well as
   the DNS names for your PCF domain that you will need to create CNAME records for (if you don't, the
   final install step will fail)
 
