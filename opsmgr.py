@@ -209,6 +209,7 @@ def opsmgr_setup(stack):
 		result = json.load(opsmgr_post(stack, "/api/setup", urllib.urlencode(setup)))
 		config.set("stack-" + stack["StackName"], "opsmgr-username", username)
 		config.set("stack-" + stack["StackName"], "opsmgr-password", password)
+		return
 	except urllib2.HTTPError as error:
 		if error.code == 422:
 			return
