@@ -485,8 +485,10 @@ def launch_cmd(argv):
 	print
 	print "  CNAME", "opsmgr." + sys_domain, opsmgr_dns
 	print "  CNAME", "*."      + app_domain, pcfelb_dns
+	if app_domain != sys_domain:
+		print "  CNAME", "*."      + sys_domain, pcfelb_dns
 	if sshelb_dns is not None:
-		print "  CNAME", "*.ssh."  + app_domain, sshelb_dns
+		print "  CNAME", "*.ssh."  + sys_domain, sshelb_dns
 	print
 	print "Failure to do so will lead to install failures later."
 
