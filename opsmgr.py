@@ -217,7 +217,7 @@ def opsmgr_setup(stack):
 			print "Error", error.code, error.reason
 			sys.exit(1)
 		pass
-	# The PCF 1.6 and beyond API was nont found (404), so we'll try the other way
+	# The PCF 1.6 and beyond API was not found (404), so we'll try the other way
 	user = {
 		"user[user_name]": username,
 		"user[password]": password,
