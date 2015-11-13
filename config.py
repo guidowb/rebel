@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
+import os
 import sys
 import ConfigParser
 
-CONFIG_FILE = "rebel.cfg"
+CONFIG_FILE = os.path.expanduser("~/.rebel.cfg")
 CONFIG = None
 UNSPECIFIED = {}
 
