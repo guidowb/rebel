@@ -11,7 +11,7 @@ steps:
 *At this time the tools are known to work with PCF 1.5.4, 1.5.7, and 1.6.x without changes.
 Older versions may also work, but have not been tested.*
 
-1. Create a rebel.cfg file in your current directory with the following contents:
+1. Create a ~/.rebel.cfg file in your home directory with the following contents:
   ```
   [pivotal-network]
   token = <your-pivnet-access-token>
