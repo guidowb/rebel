@@ -131,8 +131,8 @@ def opsmgr_request(stack, url):
 	url = opsmgr_url(stack) + url
 	request = urllib2.Request(url)
 	request.add_header('Accept', 'application/json')
-	username = config.get("stack-" + stack["StackName"], "opsmgr-username", "admin")
-	password = config.get("stack-" + stack["StackName"], "opsmgr-password", None)
+	username = config.get("stack-" + stack["StackName"], "opsmgr-username")
+	password = config.get("stack-" + stack["StackName"], "opsmgr-password")
 	if password is not None:
 		base64string = base64.encodestring('%s:%s' % (username, password))[:-1]
 		request.add_header("Authorization", "Basic %s" % base64string)
@@ -146,8 +146,8 @@ def opsmgr_get(stack, url):
 
 def opsmgr_delete(stack, url):
 	context = ssl._create_unverified_context()
-	username = config.get("stack-" + stack["StackName"], "opsmgr-username", "admin")
-	password = config.get("stack-" + stack["StackName"], "opsmgr-password", None)
+	username = config.get("stack-" + stack["StackName"], "opsmgr-username")
+	password = config.get("stack-" + stack["StackName"], "opsmgr-password")
 	headers = {}
 	if password is not None:
 		base64string = base64.encodestring('%s:%s' % (username, password))[:-1]
@@ -320,7 +320,7 @@ def opsmgr_import_product(stack, product, release):
 	opsmgr_exec(stack, command)
 	print "Removing older versions of product", folder
 	command = [
-		'rm', folder + '/*'
+		'rm', '-f', folder + '/*'
 	]
 	opsmgr_exec(stack, command)
 	files = pivnet.pivnet_files(product, release)
@@ -340,8 +340,8 @@ def opsmgr_import_product(stack, product, release):
 		]
 		opsmgr_exec(stack, command)
 		print "Importing file", download_filename
-		username = config.get("stack-" + stack["StackName"], "opsmgr-username", "admin")
-		password = config.get("stack-" + stack["StackName"], "opsmgr-password", None)
+		username = config.get("stack-" + stack["StackName"], "opsmgr-username")
+		password = config.get("stack-" + stack["StackName"], "opsmgr-password")
 		command = [
 			'curl', '-k', 'https://localhost/api/products',
 			'-F', 'product[file]=@' + download_filename,
@@ -448,8 +448,8 @@ def opsmgr_import_stemcell(stack, stemcell):
 		]
 		opsmgr_exec(stack, command)
 		print "Importing stemcell", download_filename
-		username = config.get("stack-" + stack["StackName"], "opsmgr-username", "admin")
-		password = config.get("stack-" + stack["StackName"], "opsmgr-password", None)
+		username = config.get("stack-" + stack["StackName"], "opsmgr-username")
+		password = config.get("stack-" + stack["StackName"], "opsmgr-password")
 		command = [
 			'curl', '-k', 'https://localhost/api/stemcells',
 			'-F', 'stemcell[file]=@' + download_filename,
@@ -482,7 +482,7 @@ def launch_cmd(argv):
 	print "Configuring Ops Manager Director"
 	bosh.bosh_config(stack)
 
-	password = config.get("stack-" + stack["StackName"], "opsmgr-password", None)
+	password = config.get("stack-" + stack["StackName"], "opsmgr-password")
 	opsmgr_dns = opsmgr_hostname(stack)
 	pcfelb_dns = cloudformation.get_output(stack, "PcfElbDnsName")
 	sshelb_dns = cloudformation.get_output(stack, "PcfElbSshDnsName")
