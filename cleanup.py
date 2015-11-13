@@ -280,7 +280,9 @@ def remove_stack(stack):
 		'delete-stack',
 		'--stack-name', stack
 	]
-	aws(command)	
+	aws(command)
+	print "remove stack configuration"
+	config.remove_section('stack-' + stack)	
 
 def cleanup_all(argv):
 	remove_all_vpcs()
