@@ -294,12 +294,14 @@ def opsmgr_tail_logs(stack, install_id=None):
 		time.sleep(5)
 
 def opsmgr_exec(stack, argv, stdin=None):
+	keyfilepath = config.get("aws", "ssh-private-key")
+	keyfilepath = os.path.expanduser(keyfilepath)
 	command = [
 		'ssh',
 		'-q',
 		'-o', 'UserKnownHostsFile=/dev/null',
 		'-o', 'StrictHostKeyChecking=no',
-		'-i', config.get("aws", "ssh-private-key"),
+		'-i', keyfilepath,
 		'ubuntu@' + opsmgr_hostname(stack)
 	]
 	try:

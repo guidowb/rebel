@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import cli
 import sys
 import json
@@ -141,7 +142,9 @@ def get_server_certificate():
 	return certificate_body
 
 def get_private_key():
-	with open(config.get("cf", "ssl-certificate-private-key"), 'rb') as keyfile:
+	keyfilepath = config.get("cf", "ssl-certificate-private-key")
+	keyfilepath = os.path.expanduser(keyfilepath)
+	with open(keyfilepath, 'rb') as keyfile:
 		return keyfile.read()
 
 def create_cf_databases(stack):

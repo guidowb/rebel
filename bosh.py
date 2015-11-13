@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import cli
 import aws
 import sys
@@ -91,7 +92,9 @@ def get_security_group_name(group_id):
 	return group["GroupName"]
 
 def get_private_key():
-	with open(config.get("aws", "ssh-private-key"), 'rb') as keyfile:
+	keyfilepath = config.get("aws", "ssh-private-key")
+	keyfilepath = os.path.expanduser(keyfilepath)
+	with open(keyfilepath, 'rb') as keyfile:
 		return keyfile.read()
 
 def get_guid():
