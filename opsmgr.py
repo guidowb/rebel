@@ -351,11 +351,15 @@ def opsmgr_import_product(stack, product, release):
 		opsmgr_exec(stack, command)
 	opsmgr_resolve_stemcell_criteria(stack, product)
 
-def opsmgr_available_products(stack):
+def opsmgr_available_products(stack, slug=None, release_pattern=None):
 	products = json.load(opsmgr_get(stack, "/api/products"))
+	if slug is not None:
+		products = [p for p in products if slug == p["name"]]
+	if release_pattern is not None:
+		products = [p for p in products if release_pattern in p["product_version"]]
 	return products
 
-def opsmgr_installed_products(stack):
+def opsmgr_installed_products(stack, slug=None):
 	products = json.load(opsmgr_get(stack, "/api/installation_settings"))["products"]
 	products = [
 		{
@@ -365,20 +369,19 @@ def opsmgr_installed_products(stack):
 		}
 		for p in products
 	]
+	if slug is not None:
+		products = [p for p in products if slug == p["name"]]
 	return products
 
 def opsmgr_install_if_needed(stack, slug, product_pattern, release_pattern=None):
-	available_products = opsmgr_available_products(stack)
-	available_matches = [p for p in available_products if slug == p["name"]]
-	if len(available_matches) < 1 or (release_pattern is not None and release_pattern not in available_matches[0]["product_version"]):
+	available_matches = opsmgr_available_products(stack, slug, release_pattern)
+	if len(available_matches) < 1:
 		product = pivnet.pivnet_select_product(product_pattern)
 		release = pivnet.pivnet_select_release(product, release_pattern)
 		opsmgr_import_product(stack, product, release)
-		available_products = opsmgr_available_products(stack)
-		available_matches = [p for p in available_products if slug == p["name"]]
+		available_matches = opsmgr_available_products(stack, slug, release_pattern)
 
-	installed_products = opsmgr_installed_products(stack)
-	installed_matches = [p for p in installed_products if slug == p["name"]]
+	installed_matches = opsmgr_installed_products(stack, slug)
 	if len(installed_matches) < 1:
 		params = {
 			"name": slug,
@@ -386,7 +389,9 @@ def opsmgr_install_if_needed(stack, slug, product_pattern, release_pattern=None)
 		}
 		opsmgr_post(stack, "/api/installation_settings/products", urllib.urlencode(params))
 	elif installed_matches[0]["product_version"] != available_matches[0]["product_version"]:
-		TBD # Upgrade
+		print "Upgrade not yet implemented. If you want to change the installed version,"
+		print "first remove the old tile, then retry this operation."
+		sys.exit(1)
 
 def opsmgr_get_product_metadata(stack, product):
 	folder = product["slug"]
