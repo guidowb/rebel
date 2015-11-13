@@ -487,8 +487,8 @@ def launch_cmd(argv):
 	opsmgr_dns = opsmgr_hostname(stack)
 	pcfelb_dns = cloudformation.get_output(stack, "PcfElbDnsName")
 	sshelb_dns = cloudformation.get_output(stack, "PcfElbSshDnsName")
-	app_domain = config.get(stack_section, "apps-domain")
-	sys_domain = config.get(stack_section, "system-domain")
+	app_domain = config.get("cf", "apps-domain", stack=stack_name)
+	sys_domain = config.get("cf", "system-domain", stack=stack_name)
 	print
 	print "Ops Manager started at", opsmgr_url(stack)
 	print "Admin username is admin, password is", password
