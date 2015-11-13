@@ -176,9 +176,9 @@ def get_parameter_value(stack_name, key, default=None):
 	elif key == 'rds-password':
 		return ''.join(random.SystemRandom().choice(string.ascii_lowercase + string.digits) for _ in range(16))
 	elif default is not None:
-		return config.get('aws', key, None)
+		return config.get('aws', key, default=None, stack=stack_name)
 	else:
-		return config.get('aws', key)
+		return config.get('aws', key, stack=stack_name)
 
 """ Completely unnecessary functions but some of the name choices offend my sensibilities """
 

@@ -84,8 +84,8 @@ def cf_config(stack, version=None):
 	set(router_settings, "enable_ssl", True)
 
 	controller_settings = find(elastic_runtime["jobs"], "cloud_controller")["properties"]
-	set(controller_settings, "system_domain", config.get("cf", "system-domain"))
-	set(controller_settings, "apps_domain",   config.get("cf", "apps-domain"))
+	set(controller_settings, "system_domain", config.get("cf", "system-domain", stack=stack["StackName"]))
+	set(controller_settings, "apps_domain",   config.get("cf", "apps-domain", stack=stack["StackName"]))
 	set(controller_settings, "allow_app_ssh_access", True)
 
 	ssh_elb_name = output(stack, "PcfElbSshDnsName")
@@ -96,8 +96,8 @@ def cf_config(stack, version=None):
 
 	haproxy_settings = find(elastic_runtime["jobs"], "ha_proxy")["properties"]
 	set(haproxy_settings, "ssl_rsa_certificate", {
-		"private_key_pem": get_private_key(),
-		"cert_pem": get_server_certificate()
+		"private_key_pem": get_private_key(stack),
+		"cert_pem": get_server_certificate(stack)
 		})
 	set(haproxy_settings, "skip_cert_verify", True)
 
@@ -129,8 +129,8 @@ def find_load_balancer(stack, dns_name):
 		sys.exit(1)
 	return load_balancers[0]
 
-def get_server_certificate():
-	certificate_arn  = config.get("aws", "ssl-certificate-arn")
+def get_server_certificate(stack):
+	certificate_arn  = config.get("aws", "ssl-certificate-arn", stack=stack["StackName"])
 	certificate_name = certificate_arn.split('/')[-1]
 	command = [
 		'iam',
@@ -141,8 +141,8 @@ def get_server_certificate():
 	certificate_body = certificate["CertificateBody"]
 	return certificate_body
 
-def get_private_key():
-	keyfilepath = config.get("cf", "ssl-certificate-private-key")
+def get_private_key(stack):
+	keyfilepath = config.get("cf", "ssl-certificate-private-key", stack=stack["StackName"])
 	keyfilepath = os.path.expanduser(keyfilepath)
 	with open(keyfilepath, 'rb') as keyfile:
 		return keyfile.read()

@@ -482,12 +482,13 @@ def launch_cmd(argv):
 	print "Configuring Ops Manager Director"
 	bosh.bosh_config(stack)
 
-	password = config.get("stack-" + stack["StackName"], "opsmgr-password")
+	stack_section = "stack-" + stack["StackName"]
+	password = config.get(stack_section, "opsmgr-password")
 	opsmgr_dns = opsmgr_hostname(stack)
 	pcfelb_dns = cloudformation.get_output(stack, "PcfElbDnsName")
 	sshelb_dns = cloudformation.get_output(stack, "PcfElbSshDnsName")
-	app_domain = config.get("cf", "apps-domain")
-	sys_domain = config.get("cf", "system-domain")
+	app_domain = config.get(stack_section, "apps-domain")
+	sys_domain = config.get(stack_section, "system-domain")
 	print
 	print "Ops Manager started at", opsmgr_url(stack)
 	print "Admin username is admin, password is", password

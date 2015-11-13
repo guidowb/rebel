@@ -8,26 +8,39 @@ CONFIG_FILE = os.path.expanduser("~/.rebel.cfg")
 CONFIG = None
 UNSPECIFIED = {}
 
-def get(section, key, default=UNSPECIFIED):
+def get(section, key, default=UNSPECIFIED, stack=None):
+	if stack is not None:
+		value = get('stack-' + stack, key, default=None)
+		if value is not None:
+			return value
 	global CONFIG
 	if CONFIG is None:
 		CONFIG = load_config()
 	try:
-		return CONFIG.get(section, key)
+		value = CONFIG.get(section, key)
+		if stack is not None:
+			set(section, key, value, stack)
+		return value
 	except ConfigParser.NoSectionError:
 		if default is UNSPECIFIED:
-			print "Config file", CONFIG_FILE, "must have section named", section
+			print "Config file", CONFIG_FILE, "must have a global section named", section
+			if stack is not None:
+				print "or a stack-specific section named", 'stack-' + stack
 			sys.exit(1)
 	except ConfigParser.NoOptionError:
 		if default is UNSPECIFIED:
-			print "Config file", CONFIG_FILE, "section", section, "must specify value for", key
+			print "Config file must specify value for", key, "in section", section
+			if stack is not None:
+				print "if it is not in the stack-specific section named", 'stack-' + stack
 			sys.exit(1)
 	except ConfigParser.Error as error:
 		print error
 		sys.exit(1)
 	return None
 
-def set(section, key, value):
+def set(section, key, value, stack=None):
+	if stack is not None:
+		section = 'stack-' + stack
 	global CONFIG
 	if CONFIG is None:
 		CONFIG = load_config()
