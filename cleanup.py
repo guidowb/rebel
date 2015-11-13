@@ -264,6 +264,8 @@ def remove_stack_resources(stack):
 	vpcs =    [ resource["PhysicalResourceId"] for resource in resources if resource["ResourceType"] == "AWS::EC2::VPC"]
 	buckets = [ resource["PhysicalResourceId"] for resource in resources if resource["ResourceType"] == "AWS::S3::Bucket"]
 	for substack in stacks:
+		name_parts = substack.split('/')
+		substack = substack if len(name_parts) != 3 else name_parts[1]
 		remove_stack_resources(substack)
 	for vpc in vpcs:
 		remove_vpc(vpc)
