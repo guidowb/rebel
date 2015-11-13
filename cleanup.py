@@ -4,6 +4,7 @@ import cli
 import aws as aws_module
 import sys
 import json
+import config
 
 def aws(argv):
 	try:
