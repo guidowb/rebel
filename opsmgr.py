@@ -131,8 +131,8 @@ def opsmgr_request(stack, url):
 	url = opsmgr_url(stack) + url
 	request = urllib2.Request(url)
 	request.add_header('Accept', 'application/json')
-	username = config.get("stack-" + stack["StackName"], "opsmgr-username")
-	password = config.get("stack-" + stack["StackName"], "opsmgr-password")
+	username = config.get("stack-" + stack["StackName"], "opsmgr-username", "admin")
+	password = config.get("stack-" + stack["StackName"], "opsmgr-password", None)
 	if password is not None:
 		base64string = base64.encodestring('%s:%s' % (username, password))[:-1]
 		request.add_header("Authorization", "Basic %s" % base64string)
