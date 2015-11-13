@@ -20,8 +20,6 @@ Older versions may also work, but have not been tested.*
   ssl-certificate-arn = <your-certificate-arn>
   nat-key-pair = <your-key-pair-name>
   ssh-private-key = <path-to-your-private-key-pem-file-for-the-nat-key-pair>
-  rds-username = <username-of-your-choosing>
-  rds-password = <password-of-your-choosing>
   
   [cf]
   ssl-certificate-private-key = <path-to-your-private-key-pem-file-for-the-ssl-certificate>

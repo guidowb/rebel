@@ -7,6 +7,8 @@ import json
 import aws
 import cli
 import time, datetime
+import random
+import string
 
 """ CloudFormation API """
 
@@ -66,7 +68,7 @@ def create_stack(template, name, sync=True, verbose=False):
 		'--stack-name', name,
 		'--template-body', json.dumps(template),
 		'--on-failure', 'DO_NOTHING',
-		'--parameters', json.dumps(get_parameters(template)),
+		'--parameters', json.dumps(get_parameters(name, template)),
 		'--capabilities', 'CAPABILITY_IAM',
 		'--tags', json.dumps(set_tags(template))
 	]
@@ -155,21 +157,28 @@ def get_output(stack, key):
 def is_rebel_stack(stack):
 	return get_tag(stack, "created-by") == "rebel"
 
-def get_parameters(template):
+def get_parameters(stack_name, template):
 	parameters = []
 	for key in template["Parameters"]:
-		value = None
-		if template["Parameters"][key].get("Default", None) is not None:
-			value = config.get('aws', friendly_name(key), None)
-		else:
-			value = config.get('aws', friendly_name(key))
+		value = get_parameter_value(stack_name, key, template["Parameters"][key].get("Default", None))
 		if value is not None:
 			parameters.append({
 				"ParameterKey": key,
-				"ParameterValue": config.get('aws', friendly_name(key)),
+				"ParameterValue": value,
 				"UsePreviousValue": False
 				})
 	return parameters
+
+def get_parameter_value(stack_name, key, default=None):
+	key = friendly_name(key)
+	if key == 'rds-username':
+		return 'admin'
+	elif key == 'rds-password':
+		return ''.join(random.SystemRandom().choice(string.ascii_lowercase + string.digits) for _ in range(16))
+	elif default is not None:
+		return config.get('aws', key, None)
+	else:
+		return config.get('aws', key)
 
 """ Completely unnecessary functions but some of the name choices offend my sensibilities """
 
