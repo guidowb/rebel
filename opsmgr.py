@@ -318,6 +318,11 @@ def opsmgr_import_product(stack, product, release):
 		'mkdir', '-p', folder
 	]
 	opsmgr_exec(stack, command)
+	print "Removing older versions of product", folder
+	command = [
+		'rm', folder + '/*'
+	]
+	opsmgr_exec(stack, command)
 	files = pivnet.pivnet_files(product, release)
 	for file in files:
 		download_filename = os.path.basename(file["aws_object_key"])
