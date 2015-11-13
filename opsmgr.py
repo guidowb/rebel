@@ -198,7 +198,7 @@ def opsmgr_wait(stack, verbose=False):
 def opsmgr_setup(stack):
 	opsmgr_wait(stack)
 	username = "admin"
-	password = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(16))
+	password = ''.join(random.SystemRandom().choice(string.ascii_lowercase + string.digits) for _ in range(16))
 	setup = {
 		"setup[user_name]": username,
 		"setup[password]": password,
