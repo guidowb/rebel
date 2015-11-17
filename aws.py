@@ -56,8 +56,6 @@ def get_s3_endpoint(region):
 	return 'http://s3-' + region + '.amazonaws.com'
 
 def verify_region(argv):
-	if len(argv) > 1 and argv[0] == 'configure':
-		return
 	command = [
 		AWS_CLI_BIN,
 		'configure', 'get', 'region'
@@ -84,7 +82,8 @@ def mkdir_p(dir):
 			raise
 
 def main(argv):
-	print aws_cli_verbose(argv[1:])
+	install_aws_cli_if_required()
+	os.execv(AWS_CLI_BIN, [ 'aws' ] + argv[1:])
 
 if __name__ == '__main__':
 	main(sys.argv)
