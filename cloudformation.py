@@ -35,9 +35,11 @@ def download_template(version, verbose=False):
 	return template
 
 def list_stacks(stack_pattern = ""):
-	stacks = json.loads(aws.aws_cli_verbose(['cloudformation', 'describe-stacks']))["Stacks"]
-	stacks = [s for s in stacks if is_rebel_stack(s)]
-	stacks = [s for s in stacks if stack_pattern in s["StackName"]]
+	all_stacks = json.loads(aws.aws_cli_verbose(['cloudformation', 'describe-stacks']))["Stacks"]
+	all_stacks = [s for s in all_stacks if is_rebel_stack(s)]
+	stacks = [s for s in all_stacks if stack_pattern == s["StackName"]]
+	if len(stacks) == 0:
+		stacks = [s for s in all_stacks if stack_pattern in s["StackName"]]
 	return stacks
 
 def select_stack(stack_pattern):
