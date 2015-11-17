@@ -157,7 +157,10 @@ def get_output(stack, key):
 	return output["OutputValue"] if output is not None else None
 
 def is_rebel_stack(stack):
-	return get_tag(stack, "created-by") == "rebel"
+	if not get_tag(stack, "created-by") == "rebel":
+		return False
+	parameters = [ p["ParameterKey"].lstrip('0123456789') for p in stack["Parameters"]]
+	return 'OpsManagerTemplate' in parameters
 
 def get_parameters(stack_name, template):
 	parameters = []
