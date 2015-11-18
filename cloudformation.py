@@ -185,6 +185,17 @@ def get_parameter_value(stack_name, key, default=None):
 	else:
 		return config.get('aws', key, stack=stack_name)
 
+def verify_region():
+	region = aws.aws_cli_verbose(['configure', 'get', 'region']).strip()
+	valid_regions = json.loads(aws.aws_cli_verbose(['ec2', '--region', 'us-east-1', 'describe-regions']))["Regions"]
+	region_names = [ r["RegionName"] for r in valid_regions ]
+	if region in region_names:
+		return
+	print region, "is not a valid region. Must be one of:"
+	print '\n'.join(["   " + r for r in region_names])
+	print 'Use "aws configure set region <region>" to fix your region before proceeding'
+	sys.exit(1)
+
 """ Completely unnecessary functions but some of the name choices offend my sensibilities """
 
 def friendly_name(oldname):
@@ -240,6 +251,7 @@ def list_resources_cmd(argv):
 
 def create_stack_cmd(argv):
 	cli.exit_with_usage(argv) if len(argv) < 2 else None
+	verify_region()
 	stack_name = argv[1]
 	release = argv[2] if len(argv) > 2 else None
 	template = download_template(release, verbose=True)
