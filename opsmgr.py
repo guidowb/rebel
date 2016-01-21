@@ -50,7 +50,7 @@ def opsmgr_launch_instance(stack, version=None, verbose=False):
 	version = cloudformation.get_tag(stack, "pcf-version") if version is None else version
 	image = opsmgr_select_image(version, verbose)
 	if verbose:
-		print "Launching Ops Manager instance from", image["ImageId"] + ":", image["Description"]
+		print "Launching Ops Manager instance from", image["ImageId"] + ":", image.get("Description", "-")
 	command = [
 		'ec2',
 		'run-instances',
@@ -66,7 +66,7 @@ def opsmgr_launch_instance(stack, version=None, verbose=False):
 	tags = [
 		{ "Key": "Name", "Value": "Ops Manager" },
 		{ "Key": "Stack", "Value": stack["StackName"] },
-		{ "Key": "Image", "Value": image["Description"] }
+		{ "Key": "Image", "Value": image.get("Description", "-") }
 	]
 	command = [
 		'ec2',
